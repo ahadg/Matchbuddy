@@ -1,6 +1,7 @@
 import { Stack, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { MatchText, SurfaceCard } from '@/components/matchbuddy/ui';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
@@ -12,6 +13,7 @@ import type { ApiChatsInbox, ApiDirectThreadPreview, ApiIncomingWave } from '@/t
 export default function ChatsScreen() {
   const router = useRouter();
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
   const socialRevision = useSocialStore((state) => state.revision);
   const bumpSocialRevision = useSocialStore((state) => state.bumpRevision);
   const [inbox, setInbox] = useState<ApiChatsInbox | null>(null);
@@ -84,7 +86,7 @@ export default function ChatsScreen() {
         style={{ flex: 1, backgroundColor: theme.background }}
         contentContainerStyle={{
           paddingHorizontal: Spacing.three,
-          paddingTop: Spacing.three,
+          paddingTop: insets.top + Spacing.three,
           paddingBottom: BottomTabInset + 24,
         }}>
         <View style={{ width: '100%', maxWidth: MaxContentWidth, alignSelf: 'center', gap: 16 }}>

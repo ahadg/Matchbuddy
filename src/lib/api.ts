@@ -83,6 +83,49 @@ export async function getFixtures() {
   return response.data;
 }
 
+export async function createFixture(fixture: {
+  awayCode: string;
+  awayTeam: string;
+  highlight: string;
+  homeCode: string;
+  homeTeam: string;
+  hostCity: string;
+  kickoffAt: string;
+  slug?: string;
+  stage: string;
+  venue: string;
+}) {
+  const response = await apiFetch<ApiEnvelope<ApiFixture>>('/api/fixtures', {
+    method: 'POST',
+    body: JSON.stringify(fixture),
+  });
+
+  return response.data;
+}
+
+export async function updateFixture(
+  fixtureId: string,
+  fixture: {
+    awayCode: string;
+    awayTeam: string;
+    highlight: string;
+    homeCode: string;
+    homeTeam: string;
+    hostCity: string;
+    kickoffAt: string;
+    slug?: string;
+    stage: string;
+    venue: string;
+  },
+) {
+  const response = await apiFetch<ApiEnvelope<ApiFixture>>(`/api/fixtures/${fixtureId}`, {
+    method: 'PUT',
+    body: JSON.stringify(fixture),
+  });
+
+  return response.data;
+}
+
 export async function sendEmailOtp(email: string) {
   const response = await apiFetch<ApiEnvelope<{ email: string; sent: boolean }>>('/api/auth/send-otp', {
     method: 'POST',

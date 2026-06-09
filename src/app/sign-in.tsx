@@ -1,6 +1,7 @@
 import { Redirect, Stack, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, TextInput, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { MatchText, SurfaceCard } from '@/components/matchbuddy/ui';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
@@ -11,6 +12,7 @@ import { useTheme } from '@/hooks/use-theme';
 export default function SignInScreen() {
   const router = useRouter();
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
   const authConfigured = appConfig.api.enabled && appConfig.supabase.enabled;
   const [email, setEmail] = useState('');
   const [error, setError] = useState<null | string>(null);
@@ -48,7 +50,7 @@ export default function SignInScreen() {
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"
         style={{ flex: 1, backgroundColor: theme.background }}
-        contentContainerStyle={{ padding: Spacing.three }}>
+        contentContainerStyle={{ padding: Spacing.three, paddingTop: insets.top + Spacing.three }}>
         <View style={{ width: '100%', maxWidth: MaxContentWidth, alignSelf: 'center', gap: 18 }}>
           <View style={{ gap: 6 }}>
             <MatchText variant="label" tone="muted">

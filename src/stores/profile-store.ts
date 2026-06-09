@@ -11,6 +11,10 @@ export type ProfileSetupInput = {
   displayName: string;
   favouriteTeams: string[];
   isHost: boolean;
+  location: {
+    latitude: number;
+    longitude: number;
+  };
   neighborhood: string;
   setup: HostSetup | null;
   vibe: WatchingVibe;
@@ -49,7 +53,8 @@ export function hasCompletedProfile(profile: ApiProfile | null) {
     profile.displayName.trim().length > 0 &&
     profile.city.trim().length > 0 &&
     profile.neighborhood.trim().length > 0 &&
-    profile.favouriteTeams.length > 0;
+    profile.favouriteTeams.length > 0 &&
+    Boolean(profile.location);
 
   if (!hasBasicFields) {
     return false;
@@ -174,6 +179,7 @@ export const useProfileStore = create<ProfileState>()((set, get) => ({
         displayName: input.displayName.trim(),
         favouriteTeams: input.favouriteTeams,
         isHost: input.isHost,
+        location: input.location,
         neighborhood: input.neighborhood.trim(),
         setup: input.isHost ? input.setup : null,
         vibe: input.vibe,

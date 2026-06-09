@@ -2,11 +2,13 @@ import { DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { ActivityIndicator, Pressable, View } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { Colors } from '@/constants/theme';
 import { MatchText, SurfaceCard } from '@/components/matchbuddy/ui';
 import { appConfig } from '@/lib/config';
 import { useAuthStore } from '@/stores/auth-store';
+import { useDiscoveryStore } from '@/stores/discovery-store';
 import { hasCompletedProfile, useProfileStore } from '@/stores/profile-store';
 
 const NavigationLightTheme = {
@@ -32,6 +34,7 @@ export default function RootLayout() {
   const profileError = useProfileStore((state) => state.error);
   const profileInitialized = useProfileStore((state) => state.initialized);
   const refreshProfile = useProfileStore((state) => state.refresh);
+  const setAnchor = useDiscoveryStore((state) => state.setAnchor);
 
   useEffect(() => {
     bootstrap().catch(() => undefined);
@@ -52,22 +55,32 @@ export default function RootLayout() {
     bootstrapProfile(session?.user.id ?? null).catch(() => undefined);
   }, [bootstrapProfile, clearProfile, initialized, session?.user.id]);
 
+  useEffect(() => {
+    if (!profile?.location) {
+      return;
+    }
+
+    setAnchor(profile.location.latitude, profile.location.longitude);
+  }, [profile?.location, setAnchor]);
+
   if (!initialized) {
     return (
-      <ThemeProvider value={NavigationLightTheme}>
-        <StatusBar style="light" />
-        <View
-          style={{
-            flex: 1,
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 14,
-            backgroundColor: Colors.light.background,
-          }}>
-          <ActivityIndicator color={Colors.light.accent} />
-          <MatchText tone="muted">Preparing MatchBuddy…</MatchText>
-        </View>
-      </ThemeProvider>
+      <SafeAreaProvider>
+        <ThemeProvider value={NavigationLightTheme}>
+          <StatusBar style="light" />
+          <View
+            style={{
+              flex: 1,
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 14,
+              backgroundColor: Colors.light.background,
+            }}>
+            <ActivityIndicator color={Colors.light.accent} />
+            <MatchText tone="muted">Preparing MatchBuddy…</MatchText>
+          </View>
+        </ThemeProvider>
+      </SafeAreaProvider>
     );
   }
 
@@ -77,77 +90,83 @@ export default function RootLayout() {
 
   if (authEnabled && session && !profileInitialized) {
     return (
-      <ThemeProvider value={NavigationLightTheme}>
-        <StatusBar style="light" />
-        <View
-          style={{
-            flex: 1,
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 14,
-            backgroundColor: Colors.light.background,
-            padding: 24,
-          }}>
-          <ActivityIndicator color={Colors.light.accent} />
-          <MatchText tone="muted">Loading your profile…</MatchText>
-        </View>
-      </ThemeProvider>
+      <SafeAreaProvider>
+        <ThemeProvider value={NavigationLightTheme}>
+          <StatusBar style="light" />
+          <View
+            style={{
+              flex: 1,
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 14,
+              backgroundColor: Colors.light.background,
+              padding: 24,
+            }}>
+            <ActivityIndicator color={Colors.light.accent} />
+            <MatchText tone="muted">Loading your profile…</MatchText>
+          </View>
+        </ThemeProvider>
+      </SafeAreaProvider>
     );
   }
 
   if (authEnabled && session && profileError && !profile) {
     return (
-      <ThemeProvider value={NavigationLightTheme}>
-        <StatusBar style="light" />
-        <View
-          style={{
-            flex: 1,
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 14,
-            backgroundColor: Colors.light.background,
-            padding: 24,
-          }}>
-          <SurfaceCard style={{ width: '100%', maxWidth: 420, padding: 20, gap: 14 }}>
-            <MatchText variant="title">We couldn&apos;t load your profile.</MatchText>
-            <MatchText tone="muted">{profileError}</MatchText>
-            <Pressable
-              onPress={() => {
-                refreshProfile().catch(() => undefined);
-              }}
-              style={{
-                minHeight: 52,
-                borderRadius: 999,
-                alignItems: 'center',
-                justifyContent: 'center',
-                backgroundColor: Colors.light.accent,
-              }}>
-              <MatchText variant="title" style={{ color: Colors.light.textInverted, fontSize: 18, lineHeight: 20 }}>
-                Try again
-              </MatchText>
-            </Pressable>
-          </SurfaceCard>
-        </View>
-      </ThemeProvider>
+      <SafeAreaProvider>
+        <ThemeProvider value={NavigationLightTheme}>
+          <StatusBar style="light" />
+          <View
+            style={{
+              flex: 1,
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 14,
+              backgroundColor: Colors.light.background,
+              padding: 24,
+            }}>
+            <SurfaceCard style={{ width: '100%', maxWidth: 420, padding: 20, gap: 14 }}>
+              <MatchText variant="title">We couldn&apos;t load your profile.</MatchText>
+              <MatchText tone="muted">{profileError}</MatchText>
+              <Pressable
+                onPress={() => {
+                  refreshProfile().catch(() => undefined);
+                }}
+                style={{
+                  minHeight: 52,
+                  borderRadius: 999,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  backgroundColor: Colors.light.accent,
+                }}>
+                <MatchText variant="title" style={{ color: Colors.light.textInverted, fontSize: 18, lineHeight: 20 }}>
+                  Try again
+                </MatchText>
+              </Pressable>
+            </SurfaceCard>
+          </View>
+        </ThemeProvider>
+      </SafeAreaProvider>
     );
   }
 
   return (
-    <ThemeProvider value={NavigationLightTheme}>
-      <StatusBar style="light" />
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Protected guard={!isSignedIn}>
-          <Stack.Screen name="sign-in" />
-          <Stack.Screen name="verify-otp" />
-        </Stack.Protected>
-        <Stack.Protected guard={isSignedIn && !needsProfileSetup}>
-          <Stack.Screen name="(tabs)" />
-        </Stack.Protected>
-        <Stack.Protected guard={isSignedIn}>
-          <Stack.Screen name="profile-setup" />
-        </Stack.Protected>
-        <Stack.Screen name="+not-found" />
-      </Stack>
-    </ThemeProvider>
+    <SafeAreaProvider>
+      <ThemeProvider value={NavigationLightTheme}>
+        <StatusBar style="light" />
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Protected guard={!isSignedIn}>
+            <Stack.Screen name="sign-in" />
+            <Stack.Screen name="verify-otp" />
+          </Stack.Protected>
+          <Stack.Protected guard={isSignedIn && !needsProfileSetup}>
+            <Stack.Screen name="(tabs)" />
+          </Stack.Protected>
+          <Stack.Protected guard={isSignedIn}>
+            <Stack.Screen name="profile-setup" />
+          </Stack.Protected>
+          <Stack.Screen name="+not-found" />
+        </Stack>
+      </ThemeProvider>
+    </SafeAreaProvider>
   );
 }

@@ -1,61 +1,317 @@
 import { Stack, useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
-import { useState } from 'react';
-import { Pressable, ScrollView, View } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { MatchText, SurfaceCard } from '@/components/matchbuddy/ui';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import {
+  ApiConfigurationError,
+  getFixtures,
+  getListings,
+  getNearbyFans,
+  upsertMyProfile,
+} from '@/lib/api';
+import { useDiscoveryStore } from '@/stores/discovery-store';
+import { useProfileStore } from '@/stores/profile-store';
+import type { ApiFixture, ApiListing } from '@/types/api';
 
-const fixtureCards = [
+const fallbackFixtures = [
   {
-    id: 'azteca-loft',
-    badge: 'Hottest tonight',
-    badgeTrend: '+84 today',
-    stage: 'Semi-Final',
-    timeLabel: 'Today · 21:00',
-    homeCode: 'ARG',
-    awayCode: 'FRA',
-    homeFlag: '🇦🇷',
-    awayFlag: '🇫🇷',
-    venue: 'Lusail Stadium',
-    nearbyFans: 248,
-    hot: true,
-    accent: '#FF5E78',
-    glow: 'rgba(255, 94, 120, 0.14)',
+    id: 'fallback-opening-night',
+    slug: 'fallback-opening-night',
+    stage: 'Group Stage',
+    kickoffAt: new Date().toISOString(),
+    homeCode: 'MEX',
+    homeTeam: 'Mexico',
+    awayCode: 'RSA',
+    awayTeam: 'South Africa',
+    venue: 'Estadio Azteca',
+    hostCity: 'Mexico City',
+    highlight: 'Opening night energy in Mexico City.',
   },
   {
-    id: 'queens-oled',
-    stage: 'Group F',
-    timeLabel: 'Tomorrow · 18:30',
-    homeCode: 'ENG',
-    awayCode: 'GER',
-    homeFlag: '🏴',
-    awayFlag: '🇩🇪',
-    venue: 'Wembley',
-    nearbyFans: 132,
-    accent: '#7FB6FF',
-    glow: 'rgba(101, 215, 255, 0.12)',
+    id: 'fallback-canada',
+    slug: 'fallback-canada',
+    stage: 'Group Stage',
+    kickoffAt: new Date(Date.now() + 1000 * 60 * 60 * 22).toISOString(),
+    homeCode: 'CAN',
+    homeTeam: 'Canada',
+    awayCode: 'BIH',
+    awayTeam: 'Bosnia and Herzegovina',
+    venue: 'BMO Field',
+    hostCity: 'Toronto',
+    highlight: 'A sharp group-stage clash in Toronto.',
   },
   {
-    id: 'bushwick-sound-room',
-    stage: 'Group A',
-    timeLabel: 'Sat · 20:00',
-    homeCode: 'BRA',
-    awayCode: 'ESP',
-    homeFlag: '🇧🇷',
-    awayFlag: '🇪🇸',
-    venue: 'Maracana',
-    nearbyFans: 91,
-    accent: '#A8FF6C',
-    glow: 'rgba(168, 255, 108, 0.12)',
+    id: 'fallback-usa',
+    slug: 'fallback-usa',
+    stage: 'Group Stage',
+    kickoffAt: new Date(Date.now() + 1000 * 60 * 60 * 32).toISOString(),
+    homeCode: 'USA',
+    homeTeam: 'United States',
+    awayCode: 'PAR',
+    awayTeam: 'Paraguay',
+    venue: 'SoFi Stadium',
+    hostCity: 'Los Angeles',
+    highlight: 'A home crowd test for the United States.',
   },
-];
+] satisfies ApiFixture[];
+
+const flagByCode: Record<string, string> = {
+  ALG: '🇩🇿',
+  ARG: '🇦🇷',
+  AUS: '🇦🇺',
+  AUT: '🇦🇹',
+  BEL: '🇧🇪',
+  BIH: '🇧🇦',
+  BRA: '🇧🇷',
+  CAN: '🇨🇦',
+  CIV: '🇨🇮',
+  COD: '🇨🇩',
+  COL: '🇨🇴',
+  CPV: '🇨🇻',
+  CRO: '🇭🇷',
+  CUW: '🇨🇼',
+  CZE: '🇨🇿',
+  DZA: '🇩🇿',
+  ECU: '🇪🇨',
+  EGY: '🇪🇬',
+  ENG: '🏴',
+  ESP: '🇪🇸',
+  FRA: '🇫🇷',
+  GER: '🇩🇪',
+  GHA: '🇬🇭',
+  HAI: '🇭🇹',
+  IRQ: '🇮🇶',
+  IRN: '🇮🇷',
+  JOR: '🇯🇴',
+  JPN: '🇯🇵',
+  KOR: '🇰🇷',
+  KSA: '🇸🇦',
+  MAR: '🇲🇦',
+  MEX: '🇲🇽',
+  NED: '🇳🇱',
+  NOR: '🇳🇴',
+  NZL: '🇳🇿',
+  PAN: '🇵🇦',
+  PAR: '🇵🇾',
+  POR: '🇵🇹',
+  QAT: '🇶🇦',
+  RSA: '🇿🇦',
+  SCO: '🏴',
+  SEN: '🇸🇳',
+  SUI: '🇨🇭',
+  SWE: '🇸🇪',
+  TUN: '🇹🇳',
+  TUR: '🇹🇷',
+  URU: '🇺🇾',
+  USA: '🇺🇸',
+  UZB: '🇺🇿',
+};
+
+type FixtureCardModel = {
+  badge: string;
+  badgeTrend: string;
+  highlight: string;
+  hot: boolean;
+  listingIdentifier: null | string;
+  nearbyFans: number;
+  stage: string;
+  timeLabel: string;
+} & ApiFixture;
 
 export default function HomeScreen() {
   const router = useRouter();
   const theme = useTheme();
-  const [matchDayEnabled, setMatchDayEnabled] = useState(true);
+  const insets = useSafeAreaInsets();
+  const anchor = useDiscoveryStore((state) => state.anchor);
+  const profile = useProfileStore((state) => state.profile);
+  const refreshProfile = useProfileStore((state) => state.refresh);
+  const [fixtures, setFixtures] = useState<ApiFixture[]>([]);
+  const [fixtureListings, setFixtureListings] = useState<Record<string, ApiListing>>({});
+  const [nearbyCounts, setNearbyCounts] = useState<Record<string, number>>({});
+  const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState<null | string>(null);
+  const [modeSaving, setModeSaving] = useState(false);
+  const [modeError, setModeError] = useState<null | string>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadSchedule() {
+      setLoading(true);
+      setLoadError(null);
+
+      try {
+        const [nextFixtures, nextListings] = await Promise.all([
+          getFixtures(),
+          getListings({}),
+        ]);
+
+        if (!cancelled) {
+          setFixtures(nextFixtures);
+          setFixtureListings(
+            nextListings.reduce<Record<string, ApiListing>>((map, listing) => {
+              map[listing.fixtureId] = listing;
+              return map;
+            }, {}),
+          );
+        }
+      } catch (error) {
+        if (!cancelled) {
+          if (!(error instanceof ApiConfigurationError)) {
+            setLoadError(error instanceof Error ? error.message : 'Could not load the World Cup schedule.');
+          }
+          setFixtures([]);
+          setFixtureListings({});
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    }
+
+    loadSchedule().catch(() => undefined);
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const schedule = fixtures.length ? fixtures : fallbackFixtures;
+
+  const upcomingFixtures = useMemo(() => {
+    const now = Date.now();
+    const upcoming = schedule.filter((fixture) => {
+      const kickoff = new Date(fixture.kickoffAt).getTime();
+      return Number.isFinite(kickoff) && kickoff >= now - 1000 * 60 * 60 * 12;
+    });
+
+    return (upcoming.length ? upcoming : schedule).slice(0, 3);
+  }, [schedule]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadNearbyCounts() {
+      if (!fixtures.length) {
+        setNearbyCounts({});
+        return;
+      }
+
+      const targets = upcomingFixtures.slice(0, 3);
+
+      try {
+        const results = await Promise.allSettled(
+          targets.map(async (fixture) => {
+            const nearby = await getNearbyFans({
+              latitude: anchor.latitude,
+              longitude: anchor.longitude,
+              radiusKm: 100,
+              fixtureId: fixture.id,
+              limit: 50,
+            });
+
+            return [fixture.id, nearby.length] as const;
+          }),
+        );
+
+        if (cancelled) {
+          return;
+        }
+
+        setNearbyCounts(
+          results.reduce<Record<string, number>>((counts, result) => {
+            if (result.status === 'fulfilled') {
+              counts[result.value[0]] = result.value[1];
+            }
+
+            return counts;
+          }, {}),
+        );
+      } catch {
+        if (!cancelled) {
+          setNearbyCounts({});
+        }
+      }
+    }
+
+    loadNearbyCounts().catch(() => undefined);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [anchor.latitude, anchor.longitude, fixtures.length, upcomingFixtures]);
+
+  const activeFixture = useMemo(() => {
+    if (!profile?.matchDayModeFixtureId) {
+      return null;
+    }
+
+    return fixtures.find((fixture) => fixture.id === profile.matchDayModeFixtureId) ?? null;
+  }, [fixtures, profile?.matchDayModeFixtureId]);
+
+  const heroFixture = activeFixture ?? upcomingFixtures[0] ?? null;
+  const matchDayEnabled = Boolean(profile?.matchDayModeFixtureId);
+
+  const cards = useMemo<FixtureCardModel[]>(
+    () =>
+      upcomingFixtures.map((fixture, index) => ({
+        ...fixture,
+        badge:
+          index === 0
+            ? matchDayEnabled && heroFixture?.id === fixture.id
+              ? 'Match day pick'
+              : 'Next kickoff'
+            : 'Upcoming',
+        badgeTrend: fixture.hostCity,
+        highlight: fixture.highlight,
+        hot: index === 0,
+        listingIdentifier: fixtureListings[fixture.id]?.slug ?? fixtureListings[fixture.id]?.id ?? null,
+        nearbyFans: nearbyCounts[fixture.id] ?? 0,
+        stage: fixture.stage,
+        timeLabel: formatFixtureTime(fixture.kickoffAt),
+      })),
+    [fixtureListings, heroFixture?.id, matchDayEnabled, nearbyCounts, upcomingFixtures],
+  );
+
+  async function handleMatchDayToggle() {
+    if (!heroFixture) {
+      return;
+    }
+
+    if (!profile) {
+      router.push('/profile-setup');
+      return;
+    }
+
+    setModeSaving(true);
+    setModeError(null);
+
+    try {
+      await upsertMyProfile({
+        matchDayModeFixtureId: matchDayEnabled ? null : heroFixture.id,
+      });
+      await refreshProfile();
+    } catch (error) {
+      setModeError(error instanceof Error ? error.message : 'Could not update Match Day Mode.');
+    } finally {
+      setModeSaving(false);
+    }
+  }
+
+  function openFixture(card: FixtureCardModel) {
+    if (card.listingIdentifier) {
+      router.push({ pathname: '/listing/[listingId]', params: { listingId: card.listingIdentifier } });
+      return;
+    }
+
+    router.push('/listings');
+  }
 
   return (
     <>
@@ -65,7 +321,7 @@ export default function HomeScreen() {
         style={{ flex: 1, backgroundColor: theme.background }}
         contentContainerStyle={{
           paddingHorizontal: Spacing.three,
-          paddingTop: 18,
+          paddingTop: insets.top + 10,
           paddingBottom: BottomTabInset + 24,
         }}>
         <View style={{ width: '100%', maxWidth: MaxContentWidth, alignSelf: 'center', gap: 18 }}>
@@ -91,7 +347,14 @@ export default function HomeScreen() {
               backgroundColor: 'rgba(160,255,97,0.06)',
             }}
           />
-          <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: Spacing.three }}>
+
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'flex-end',
+              justifyContent: 'space-between',
+              gap: Spacing.three,
+            }}>
             <View style={{ gap: 4 }}>
               <MatchText variant="label" tone="muted">
                 Matchday · Jun
@@ -129,9 +392,36 @@ export default function HomeScreen() {
                   backgroundColor: 'rgba(255,255,255,0.02)',
                 }}
               />
-              <View style={{ position: 'absolute', left: 16, bottom: -18, width: 148, height: 118, borderRadius: 44, backgroundColor: 'rgba(72,255,192,0.12)' }} />
-              <View style={{ position: 'absolute', right: -10, top: -14, width: 166, height: 128, borderRadius: 48, backgroundColor: 'rgba(166,255,97,0.12)' }} />
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+              <View
+                style={{
+                  position: 'absolute',
+                  left: 16,
+                  bottom: -18,
+                  width: 148,
+                  height: 118,
+                  borderRadius: 44,
+                  backgroundColor: 'rgba(72,255,192,0.12)',
+                }}
+              />
+              <View
+                style={{
+                  position: 'absolute',
+                  right: -10,
+                  top: -14,
+                  width: 166,
+                  height: 128,
+                  borderRadius: 48,
+                  backgroundColor: 'rgba(166,255,97,0.12)',
+                }}
+              />
+
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: 12,
+                }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
                   <View
                     style={{
@@ -161,32 +451,73 @@ export default function HomeScreen() {
                       }}
                     />
                   </View>
+
                   <View style={{ flex: 1, gap: 3 }}>
                     <MatchText variant="title" style={{ fontSize: 23, lineHeight: 26 }}>
                       Match Day Mode
                     </MatchText>
-                    <MatchText style={{ color: 'rgba(235,237,244,0.72)', fontSize: 14, lineHeight: 20 }}>
-                      Visible for ARG-FRA · 3h left
+                    <MatchText
+                      style={{
+                        color: 'rgba(235,237,244,0.72)',
+                        fontSize: 14,
+                        lineHeight: 20,
+                      }}>
+                      {heroFixture
+                        ? `${matchDayEnabled ? 'Visible for' : 'Ready for'} ${heroFixture.homeCode}-${heroFixture.awayCode} · ${formatTimeUntil(heroFixture.kickoffAt)}`
+                        : 'No upcoming fixtures loaded yet'}
                     </MatchText>
                   </View>
                 </View>
-                <ModeToggle enabled={matchDayEnabled} onPress={() => setMatchDayEnabled((value) => !value)} />
+
+                <ModeToggle
+                  enabled={matchDayEnabled}
+                  loading={modeSaving}
+                  onPress={() => {
+                    handleMatchDayToggle().catch(() => undefined);
+                  }}
+                />
               </View>
 
               <View style={{ marginTop: 14, flexDirection: 'row', gap: 10, flexWrap: 'wrap' }}>
-                <MetaPill label="ARG vs FRA" />
-                <MetaPill label="248 nearby" accent />
+                <MetaPill
+                  label={
+                    heroFixture
+                      ? `${heroFixture.homeCode} vs ${heroFixture.awayCode}`
+                      : 'Pick a fixture'
+                  }
+                />
+                <MetaPill
+                  accent
+                  label={
+                    heroFixture
+                      ? `${nearbyCounts[heroFixture.id] ?? 0} nearby`
+                      : 'Nearby soon'
+                  }
+                />
+                {heroFixture ? <MetaPill label={heroFixture.stage} /> : null}
               </View>
             </View>
           </View>
 
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.two }}>
+          {modeError ? (
+            <SurfaceCard tone="warm" style={{ borderRadius: 24 }}>
+              <MatchText tone="warm">{modeError}</MatchText>
+            </SurfaceCard>
+          ) : null}
+
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: Spacing.two,
+            }}>
             <View style={{ gap: 2 }}>
               <MatchText variant="title" style={{ fontSize: 24, lineHeight: 26 }}>
-                Upcoming
+                World Cup 2026
               </MatchText>
               <MatchText tone="muted" style={{ fontSize: 13 }}>
-                Best matchups near you
+                Live from your database schedule
               </MatchText>
             </View>
             <View
@@ -199,16 +530,31 @@ export default function HomeScreen() {
                 borderColor: 'rgba(160,255,97,0.18)',
               }}>
               <MatchText variant="caption" tone="accent" style={{ fontSize: 12 }}>
-                This week
+                {fixtures.length ? `${fixtures.length} scheduled` : 'Preview'}
               </MatchText>
             </View>
           </View>
 
+          {loading && !fixtures.length ? (
+            <SurfaceCard style={{ borderRadius: 24, padding: 18 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                <ActivityIndicator color={theme.accent} />
+                <MatchText tone="muted">Loading the official schedule…</MatchText>
+              </View>
+            </SurfaceCard>
+          ) : null}
+
+          {loadError ? (
+            <SurfaceCard tone="warm" style={{ borderRadius: 24 }}>
+              <MatchText tone="warm">{loadError}</MatchText>
+            </SurfaceCard>
+          ) : null}
+
           <View style={{ gap: 16 }}>
-            {fixtureCards.map((fixture, index) => (
+            {cards.map((fixture) => (
               <Pressable
                 key={fixture.id}
-                onPress={() => index === 0 && router.push('/listing/azteca-loft')}
+                onPress={() => openFixture(fixture)}
                 style={({ pressed }) => ({
                   opacity: pressed ? 0.95 : 1,
                   transform: [{ scale: pressed ? 0.995 : 1 }],
@@ -229,7 +575,7 @@ export default function HomeScreen() {
                       width: 134,
                       height: 134,
                       borderRadius: 68,
-                      backgroundColor: fixture.glow,
+                      backgroundColor: fixture.hot ? 'rgba(255, 94, 120, 0.14)' : 'rgba(101, 215, 255, 0.12)',
                     }}
                   />
                   <View
@@ -243,40 +589,66 @@ export default function HomeScreen() {
                       backgroundColor: 'rgba(255,255,255,0.03)',
                     }}
                   />
-                  {fixture.hot ? (
+
+                  <View
+                    style={{
+                      paddingHorizontal: 16,
+                      paddingVertical: 12,
+                      backgroundColor: fixture.hot ? 'rgba(255, 88, 120, 0.18)' : 'rgba(255,255,255,0.04)',
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 8,
+                    }}>
+                    <MatchSymbol
+                      name={fixture.hot ? { ios: 'trophy.fill', android: 'emoji_events', web: 'emoji_events' } : { ios: 'calendar', android: 'calendar_today', web: 'calendar_month' }}
+                      color={fixture.hot ? '#FF5E78' : 'rgba(235,238,244,0.72)'}
+                      size={15}
+                    />
+                    <MatchText
+                      variant="caption"
+                      style={{
+                        color: fixture.hot ? '#FF5E78' : 'rgba(235,238,244,0.72)',
+                        fontSize: 13,
+                        fontWeight: '800',
+                      }}>
+                      {fixture.badge.toUpperCase()}
+                    </MatchText>
                     <View
                       style={{
-                        paddingHorizontal: 16,
-                        paddingVertical: 12,
-                        backgroundColor: 'rgba(255, 88, 120, 0.18)',
+                        marginLeft: 'auto',
                         flexDirection: 'row',
                         alignItems: 'center',
-                        gap: 8,
+                        gap: 4,
                       }}>
                       <MatchSymbol
-                        name={{ ios: 'trophy.fill', android: 'emoji_events', web: 'emoji_events' }}
-                        color="#FF5E78"
-                        size={15}
+                        name={{ ios: 'location.fill', android: 'location_on', web: 'location_on' }}
+                        color={fixture.hot ? '#FF8B63' : 'rgba(235,238,244,0.72)'}
+                        size={14}
                       />
-                      <MatchText variant="caption" style={{ color: '#FF5E78', fontSize: 13, fontWeight: '800' }}>
-                        HOTTEST TONIGHT
+                      <MatchText
+                        variant="caption"
+                        style={{
+                          color: fixture.hot ? '#FF8B63' : 'rgba(235,238,244,0.72)',
+                          fontSize: 13,
+                          fontWeight: '700',
+                        }}>
+                        {fixture.badgeTrend}
                       </MatchText>
-                      <View style={{ marginLeft: 'auto', flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                        <MatchSymbol
-                          name={{ ios: 'flame.fill', android: 'local_fire_department', web: 'local_fire_department' }}
-                          color="#FF8B63"
-                          size={14}
-                        />
-                        <MatchText variant="caption" style={{ color: '#FF8B63', fontSize: 13, fontWeight: '700' }}>
-                          {fixture.badgeTrend}
-                        </MatchText>
-                      </View>
                     </View>
-                  ) : null}
+                  </View>
 
-                  <View style={{ padding: 16, gap: 16 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.two }}>
-                      <MatchText variant="label" tone="muted" style={{ fontSize: 14, color: 'rgba(235,238,244,0.72)' }}>
+                  <View style={{ padding: 16, gap: 14 }}>
+                    <View
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: Spacing.two,
+                      }}>
+                      <MatchText
+                        variant="label"
+                        tone="muted"
+                        style={{ fontSize: 14, color: 'rgba(235,238,244,0.72)' }}>
                         {fixture.stage}
                       </MatchText>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
@@ -291,24 +663,48 @@ export default function HomeScreen() {
                       </View>
                     </View>
 
-                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 14 }}>
-                      <TeamBadge flag={fixture.homeFlag} code={fixture.homeCode} />
+                    <View
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: 14,
+                      }}>
+                      <TeamBadge
+                        emblem={flagForCode(fixture.homeCode)}
+                        code={fixture.homeCode}
+                        fallbackLabel={fixture.homeTeam}
+                      />
                       <MatchText variant="subtitle" tone="muted" style={{ fontSize: 18 }}>
                         VS
                       </MatchText>
-                      <TeamBadge flag={fixture.awayFlag} code={fixture.awayCode} />
+                      <TeamBadge
+                        emblem={flagForCode(fixture.awayCode)}
+                        code={fixture.awayCode}
+                        fallbackLabel={fixture.awayTeam}
+                      />
                     </View>
+
+                    <MatchText tone="muted" style={{ fontSize: 14, lineHeight: 20 }}>
+                      {fixture.highlight}
+                    </MatchText>
 
                     <View style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.08)' }} />
 
-                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <View
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: 12,
+                      }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
                         <MatchSymbol
                           name={{ ios: 'location.fill', android: 'location_on', web: 'location_on' }}
                           color="rgba(235,238,244,0.72)"
                           size={15}
                         />
-                        <MatchText tone="muted" style={{ fontSize: 14 }}>
+                        <MatchText tone="muted" style={{ fontSize: 14 }} numberOfLines={1}>
                           {fixture.venue}
                         </MatchText>
                       </View>
@@ -343,10 +739,20 @@ export default function HomeScreen() {
   );
 }
 
-function ModeToggle({ enabled, onPress }: { enabled: boolean; onPress: () => void }) {
+function ModeToggle({
+  enabled,
+  loading,
+  onPress,
+}: {
+  enabled: boolean;
+  loading: boolean;
+  onPress: () => void;
+}) {
+  const theme = useTheme();
+
   return (
     <Pressable
-      onPress={onPress}
+      onPress={loading ? undefined : onPress}
       style={({ pressed }) => ({
         width: 82,
         height: 50,
@@ -356,7 +762,7 @@ function ModeToggle({ enabled, onPress }: { enabled: boolean; onPress: () => voi
         borderColor: enabled ? 'rgba(184,255,97,0.32)' : 'rgba(255,255,255,0.08)',
         justifyContent: 'center',
         paddingHorizontal: 6,
-        opacity: pressed ? 0.94 : 1,
+        opacity: pressed || loading ? 0.94 : 1,
       })}>
       <View
         style={{
@@ -370,15 +776,19 @@ function ModeToggle({ enabled, onPress }: { enabled: boolean; onPress: () => voi
           alignItems: 'center',
           justifyContent: 'center',
         }}>
-        <MatchSymbol
-          name={
-            enabled
-              ? { ios: 'checkmark', android: 'check', web: 'check' }
-              : { ios: 'circle.fill', android: 'radio_button_checked', web: 'radio_button_checked' }
-          }
-          color={enabled ? '#9BFF62' : 'rgba(255,255,255,0.6)'}
-          size={enabled ? 18 : 14}
-        />
+        {loading ? (
+          <ActivityIndicator color={enabled ? '#9BFF62' : theme.text} size="small" />
+        ) : (
+          <MatchSymbol
+            name={
+              enabled
+                ? { ios: 'checkmark', android: 'check', web: 'check' }
+                : { ios: 'circle.fill', android: 'radio_button_checked', web: 'radio_button_checked' }
+            }
+            color={enabled ? '#9BFF62' : 'rgba(255,255,255,0.6)'}
+            size={enabled ? 18 : 14}
+          />
+        )}
       </View>
     </Pressable>
   );
@@ -436,7 +846,15 @@ function CircleAction({ symbolName, accentDot = false }: { symbolName: any; acce
   );
 }
 
-function TeamBadge({ flag, code }: { flag: string; code: string }) {
+function TeamBadge({
+  emblem,
+  code,
+  fallbackLabel,
+}: {
+  emblem: null | string;
+  code: string;
+  fallbackLabel: string;
+}) {
   return (
     <View style={{ alignItems: 'center', gap: 10, flex: 1 }}>
       <View
@@ -449,14 +867,28 @@ function TeamBadge({ flag, code }: { flag: string; code: string }) {
           backgroundColor: 'rgba(255,255,255,0.05)',
           alignItems: 'center',
           justifyContent: 'center',
+          paddingHorizontal: 8,
         }}>
-        <MatchText variant="hero" style={{ fontSize: 30, lineHeight: 32 }}>
-          {flag}
-        </MatchText>
+        {emblem ? (
+          <MatchText variant="hero" style={{ fontSize: 30, lineHeight: 32 }}>
+            {emblem}
+          </MatchText>
+        ) : (
+          <MatchText
+            variant="title"
+            style={{ fontSize: code.length > 3 ? 18 : 24, lineHeight: 26, textAlign: 'center' }}>
+            {code}
+          </MatchText>
+        )}
       </View>
       <MatchText variant="subtitle" style={{ fontSize: 16, letterSpacing: 1 }}>
         {code}
       </MatchText>
+      {!emblem ? (
+        <MatchText tone="muted" style={{ fontSize: 11, textAlign: 'center' }} numberOfLines={2}>
+          {fallbackLabel}
+        </MatchText>
+      ) : null}
     </View>
   );
 }
@@ -473,4 +905,60 @@ function MatchSymbol({
   const theme = useTheme();
 
   return <SymbolView name={name} size={size} tintColor={color ?? theme.text} type="monochrome" />;
+}
+
+function flagForCode(code: string) {
+  return flagByCode[code] ?? null;
+}
+
+function formatFixtureTime(kickoffAt: string) {
+  const kickoff = new Date(kickoffAt);
+
+  if (Number.isNaN(kickoff.getTime())) {
+    return 'Kickoff TBD';
+  }
+
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const tomorrow = new Date(today);
+  tomorrow.setDate(today.getDate() + 1);
+  const fixtureDay = new Date(kickoff.getFullYear(), kickoff.getMonth(), kickoff.getDate());
+  const time = kickoff.toLocaleTimeString([], {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+
+  if (fixtureDay.getTime() === today.getTime()) {
+    return `Today · ${time}`;
+  }
+
+  if (fixtureDay.getTime() === tomorrow.getTime()) {
+    return `Tomorrow · ${time}`;
+  }
+
+  return `${kickoff.toLocaleDateString([], {
+    month: 'short',
+    day: 'numeric',
+  })} · ${time}`;
+}
+
+function formatTimeUntil(kickoffAt: string) {
+  const deltaMs = new Date(kickoffAt).getTime() - Date.now();
+
+  if (!Number.isFinite(deltaMs)) {
+    return 'Kickoff soon';
+  }
+
+  if (deltaMs <= 0) {
+    return 'Live now';
+  }
+
+  const totalHours = Math.round(deltaMs / (1000 * 60 * 60));
+
+  if (totalHours < 24) {
+    return `${Math.max(1, totalHours)}h left`;
+  }
+
+  const totalDays = Math.round(deltaMs / (1000 * 60 * 60 * 24));
+  return `${Math.max(1, totalDays)}d left`;
 }

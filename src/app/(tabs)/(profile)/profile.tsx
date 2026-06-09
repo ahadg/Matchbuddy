@@ -1,7 +1,9 @@
 import { Stack, useRouter } from 'expo-router';
 import { Pressable, ScrollView, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { MatchText, SurfaceCard } from '@/components/matchbuddy/ui';
+import { MATCHBUDDY_ADMIN_EMAIL } from '@/constants/admin';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { appConfig } from '@/lib/config';
@@ -11,10 +13,12 @@ import { useProfileStore } from '@/stores/profile-store';
 export default function ProfileScreen() {
   const router = useRouter();
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
   const session = useAuthStore((state) => state.session);
   const signOut = useAuthStore((state) => state.signOut);
   const profile = useProfileStore((state) => state.profile);
   const loading = useProfileStore((state) => state.loading);
+  const isAdmin = session?.user?.email?.trim().toLowerCase() === MATCHBUDDY_ADMIN_EMAIL;
 
   const displayName = profile?.displayName ?? 'MatchBuddy fan';
   const initial = displayName[0]?.toUpperCase() ?? 'M';
@@ -40,6 +44,7 @@ export default function ProfileScreen() {
         contentInsetAdjustmentBehavior="automatic"
         style={{ flex: 1, backgroundColor: theme.background }}
         contentContainerStyle={{
+          paddingTop: insets.top,
           paddingBottom: BottomTabInset + 22,
         }}>
         <View style={{ width: '100%', maxWidth: MaxContentWidth, alignSelf: 'center' }}>
@@ -111,6 +116,25 @@ export default function ProfileScreen() {
                     {profile ? 'Edit profile' : 'Create profile'}
                   </MatchText>
                 </Pressable>
+
+                {isAdmin ? (
+                  <Pressable
+                    onPress={() => {
+                      router.push('/(tabs)/(profile)/admin-fixtures');
+                    }}
+                    style={{
+                      paddingHorizontal: 18,
+                      paddingVertical: 12,
+                      borderRadius: 999,
+                      backgroundColor: 'rgba(160,255,97,0.14)',
+                      borderWidth: 1,
+                      borderColor: 'rgba(160,255,97,0.22)',
+                    }}>
+                    <MatchText tone="accent" style={{ fontSize: 14, fontWeight: '800' }}>
+                      Manage fixtures
+                    </MatchText>
+                  </Pressable>
+                ) : null}
 
                 {appConfig.supabase.enabled && session ? (
                   <Pressable

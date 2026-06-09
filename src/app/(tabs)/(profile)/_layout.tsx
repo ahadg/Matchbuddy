@@ -5,6 +5,7 @@ import { useTheme } from '@/hooks/use-theme';
 
 export const unstable_settings = {
   anchor: 'profile',
+  initialRouteName: 'profile',
 };
 
 export default function ProfileLayout() {
@@ -12,6 +13,7 @@ export default function ProfileLayout() {
 
   return (
     <Stack
+      initialRouteName="profile"
       screenOptions={{
         headerShown: false,
         headerShadowVisible: false,
@@ -28,6 +30,7 @@ export default function ProfileLayout() {
         },
       }}>
       <Stack.Screen name="profile" />
+      <Stack.Screen name="admin-fixtures" />
     </Stack>
   );
 }

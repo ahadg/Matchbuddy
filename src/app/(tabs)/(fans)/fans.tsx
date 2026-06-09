@@ -1,12 +1,14 @@
 import { Stack, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, TextInput, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { MatchText, SurfaceCard } from '@/components/matchbuddy/ui';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { ApiConfigurationError, getNearbyFans, sendWave } from '@/lib/api';
 import { useDiscoveryStore } from '@/stores/discovery-store';
+import { useProfileStore } from '@/stores/profile-store';
 import { useSocialStore } from '@/stores/social-store';
 import type { ApiNearbyFan, ApiWaveStatus } from '@/types/api';
 
@@ -86,7 +88,9 @@ type FanCardModel = {
 export default function FansScreen() {
   const router = useRouter();
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
   const anchor = useDiscoveryStore((state) => state.anchor);
+  const profileLocation = useProfileStore((state) => state.profile?.location ?? null);
   const applyCustomRadius = useDiscoveryStore((state) => state.applyCustomRadius);
   const customRadiusKm = useDiscoveryStore((state) => state.customRadiusKm);
   const radiusKm = useDiscoveryStore((state) => state.radiusKm);
@@ -140,7 +144,7 @@ export default function FansScreen() {
   }, [anchor.latitude, anchor.longitude, radiusKm, socialRevision]);
 
   const cards: FanCardModel[] = useMemo(() => {
-    if (!remoteFans?.length) {
+    if (remoteFans === null) {
       return fallbackFans;
     }
 
@@ -197,7 +201,7 @@ export default function FansScreen() {
         style={{ flex: 1, backgroundColor: theme.background }}
         contentContainerStyle={{
           paddingHorizontal: Spacing.three,
-          paddingTop: Spacing.three,
+          paddingTop: insets.top + Spacing.three,
           paddingBottom: BottomTabInset + 24,
         }}>
         <View style={{ width: '100%', maxWidth: MaxContentWidth, alignSelf: 'center', gap: 16 }}>
@@ -256,6 +260,21 @@ export default function FansScreen() {
               </Pressable>
             </View>
           </View>
+
+          {profileLocation ? (
+            <SurfaceCard
+              style={{
+                paddingHorizontal: 16,
+                paddingVertical: 12,
+                borderRadius: 22,
+                backgroundColor: '#171D30',
+                borderColor: 'rgba(255,255,255,0.10)',
+              }}>
+              <MatchText tone="muted" style={{ fontSize: 13, lineHeight: 18 }}>
+                Searching within {radiusKm} km of {profileLocation.latitude.toFixed(4)}, {profileLocation.longitude.toFixed(4)}
+              </MatchText>
+            </SurfaceCard>
+          ) : null}
 
           <SurfaceCard
             style={{
@@ -349,108 +368,125 @@ export default function FansScreen() {
             </SurfaceCard>
           ) : null}
 
-          {cards.map((fan) => (
-            <Pressable
-              key={fan.id}
-              onPress={() => router.push({ pathname: '/fan/[fanId]', params: { fanId: fan.id } })}
-              style={({ pressed }) => ({
-                opacity: pressed ? 0.96 : 1,
-                transform: [{ scale: pressed ? 0.995 : 1 }],
-              })}>
-              <SurfaceCard
-                style={{
-                  padding: 16,
-                  borderRadius: 28,
-                  backgroundColor: '#171D30',
-                  borderColor: 'rgba(255,255,255,0.10)',
-                }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-                  <View
-                    style={{
-                      width: 82,
-                      height: 82,
-                      borderRadius: 24,
-                      backgroundColor: fan.secondary,
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}>
+          {cards.length ? (
+            cards.map((fan) => (
+              <Pressable
+                key={fan.id}
+                onPress={() => router.push({ pathname: '/fan/[fanId]', params: { fanId: fan.id } })}
+                style={({ pressed }) => ({
+                  opacity: pressed ? 0.96 : 1,
+                  transform: [{ scale: pressed ? 0.995 : 1 }],
+                })}>
+                <SurfaceCard
+                  style={{
+                    padding: 16,
+                    borderRadius: 28,
+                    backgroundColor: '#171D30',
+                    borderColor: 'rgba(255,255,255,0.10)',
+                  }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
                     <View
                       style={{
-                        position: 'absolute',
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
+                        width: 82,
+                        height: 82,
                         borderRadius: 24,
-                        backgroundColor: fan.accent,
-                        opacity: 0.72,
-                      }}
-                    />
-                    <MatchText variant="title" style={{ color: '#091019', fontSize: 32, lineHeight: 34, zIndex: 1 }}>
-                      {fan.initial}
-                    </MatchText>
-                    <View
-                      style={{
-                        position: 'absolute',
-                        right: -2,
-                        bottom: -2,
-                        width: 16,
-                        height: 16,
-                        borderRadius: 999,
-                        backgroundColor: theme.accent,
-                        borderWidth: 3,
-                        borderColor: '#171D30',
-                      }}
-                    />
-                  </View>
-
-                  <View style={{ flex: 1, gap: 4 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
-                      <MatchText variant="title" style={{ fontSize: 24, lineHeight: 26 }}>
-                        {fan.displayName}
-                      </MatchText>
-                      {fan.isHost ? <HostBadge /> : null}
-                    </View>
-                    <MatchText tone="muted" style={{ fontSize: 14, lineHeight: 19 }}>
-                      {fan.neighborhood} · {fan.distanceKm.toFixed(1)} km ·
-                    </MatchText>
-                    <MatchText tone="muted" style={{ fontSize: 14, lineHeight: 19 }}>
-                      {fan.vibe}
-                    </MatchText>
-                    <MatchText style={{ color: '#FFC84B', fontSize: 15, fontWeight: '800' }}>★ {fan.rating.toFixed(1)}</MatchText>
-                  </View>
-
-                  <Pressable
-                    onPress={(event) => {
-                      event.stopPropagation();
-                      handleWave(fan).catch(() => undefined);
-                    }}
-                    style={({ pressed }) => ({
-                      width: 78,
-                      height: 78,
-                      borderRadius: 22,
-                      backgroundColor: waveButtonBackground(fan.waveStatus, theme.accent),
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      borderWidth: 1,
-                      borderColor: waveButtonBorder(fan.waveStatus),
-                      opacity: pressed ? 0.92 : 1,
-                    })}>
-                    <MatchText
-                      variant="subtitle"
-                      style={{
-                        color: waveButtonForeground(fan.waveStatus),
-                        fontSize: 14,
-                        lineHeight: 16,
-                        textAlign: 'center',
+                        backgroundColor: fan.secondary,
+                        alignItems: 'center',
+                        justifyContent: 'center',
                       }}>
-                      {activeWaveFanId === fan.id ? '...' : waveButtonLabel(fan.waveStatus)}
-                    </MatchText>
-                  </Pressable>
-                </View>
-              </SurfaceCard>
-            </Pressable>
-          ))}
+                      <View
+                        style={{
+                          position: 'absolute',
+                          top: 0,
+                          left: 0,
+                          right: 0,
+                          bottom: 0,
+                          borderRadius: 24,
+                          backgroundColor: fan.accent,
+                          opacity: 0.72,
+                        }}
+                      />
+                      <MatchText variant="title" style={{ color: '#091019', fontSize: 32, lineHeight: 34, zIndex: 1 }}>
+                        {fan.initial}
+                      </MatchText>
+                      <View
+                        style={{
+                          position: 'absolute',
+                          right: -2,
+                          bottom: -2,
+                          width: 16,
+                          height: 16,
+                          borderRadius: 999,
+                          backgroundColor: theme.accent,
+                          borderWidth: 3,
+                          borderColor: '#171D30',
+                        }}
+                      />
+                    </View>
+
+                    <View style={{ flex: 1, gap: 4 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+                        <MatchText variant="title" style={{ fontSize: 24, lineHeight: 26 }}>
+                          {fan.displayName}
+                        </MatchText>
+                        {fan.isHost ? <HostBadge /> : null}
+                      </View>
+                      <MatchText tone="muted" style={{ fontSize: 14, lineHeight: 19 }}>
+                        {fan.neighborhood} · {fan.distanceKm.toFixed(1)} km ·
+                      </MatchText>
+                      <MatchText tone="muted" style={{ fontSize: 14, lineHeight: 19 }}>
+                        {fan.vibe}
+                      </MatchText>
+                      <MatchText style={{ color: '#FFC84B', fontSize: 15, fontWeight: '800' }}>★ {fan.rating.toFixed(1)}</MatchText>
+                    </View>
+
+                    <Pressable
+                      onPress={(event) => {
+                        event.stopPropagation();
+                        handleWave(fan).catch(() => undefined);
+                      }}
+                      style={({ pressed }) => ({
+                        width: 78,
+                        height: 78,
+                        borderRadius: 22,
+                        backgroundColor: waveButtonBackground(fan.waveStatus, theme.accent),
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        borderWidth: 1,
+                        borderColor: waveButtonBorder(fan.waveStatus),
+                        opacity: pressed ? 0.92 : 1,
+                      })}>
+                      <MatchText
+                        variant="subtitle"
+                        style={{
+                          color: waveButtonForeground(fan.waveStatus),
+                          fontSize: 14,
+                          lineHeight: 16,
+                          textAlign: 'center',
+                        }}>
+                        {activeWaveFanId === fan.id ? '...' : waveButtonLabel(fan.waveStatus)}
+                      </MatchText>
+                    </Pressable>
+                  </View>
+                </SurfaceCard>
+              </Pressable>
+            ))
+          ) : (
+            <SurfaceCard
+              style={{
+                padding: 18,
+                borderRadius: 24,
+                backgroundColor: '#171D30',
+                borderColor: 'rgba(255,255,255,0.10)',
+              }}>
+              <MatchText variant="title" style={{ fontSize: 22, lineHeight: 24 }}>
+                No fans found in this radius
+              </MatchText>
+              <MatchText tone="muted" style={{ fontSize: 14, lineHeight: 20 }}>
+                Try a bigger km range or update your saved latitude and longitude in your profile.
+              </MatchText>
+            </SurfaceCard>
+          )}
         </View>
       </ScrollView>
     </>
