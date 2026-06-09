@@ -11,6 +11,7 @@ import { useTheme } from '@/hooks/use-theme';
 export default function SignInScreen() {
   const router = useRouter();
   const theme = useTheme();
+  const authConfigured = appConfig.api.enabled && appConfig.supabase.enabled;
   const [email, setEmail] = useState('');
   const [error, setError] = useState<null | string>(null);
   const loading = useAuthStore((state) => state.loading);
@@ -18,16 +19,17 @@ export default function SignInScreen() {
   const session = useAuthStore((state) => state.session);
   const sendOtp = useAuthStore((state) => state.sendOtp);
 
-  if (!appConfig.supabase.enabled) {
+  if (!authConfigured) {
     return (
       <>
         <Stack.Screen options={{ title: 'Sign in' }} />
         <ScrollView contentInsetAdjustmentBehavior="automatic" style={{ flex: 1, backgroundColor: theme.background }}>
           <View style={{ padding: Spacing.three, width: '100%', maxWidth: MaxContentWidth, alignSelf: 'center', gap: 16 }}>
             <SurfaceCard tone="warm">
-              <MatchText variant="title">Supabase auth is not configured yet.</MatchText>
+              <MatchText variant="title">Auth is not configured yet.</MatchText>
               <MatchText tone="muted">
-                Add `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` to start the OTP flow.
+                Add `EXPO_PUBLIC_API_BASE_URL`, `EXPO_PUBLIC_SUPABASE_URL`, and `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` to
+                start the OTP flow.
               </MatchText>
             </SurfaceCard>
           </View>
@@ -56,7 +58,7 @@ export default function SignInScreen() {
               Sign in to MatchBuddy
             </MatchText>
             <MatchText tone="muted" style={{ fontSize: 15, lineHeight: 21 }}>
-              Enter your email and we&apos;ll send a one-time code. New users are created automatically.
+              Enter your email and we&apos;ll send a one-time code through email. New users are created automatically.
             </MatchText>
           </View>
 

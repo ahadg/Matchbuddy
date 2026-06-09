@@ -1,12 +1,37 @@
 import { appConfig } from '@/lib/config';
 import { supabase } from '@/lib/supabase';
-import type { ApiEnvelope, ApiFanDetail, ApiFixture, ApiListing, ApiNearbyFan, ApiProfile } from '@/types/api';
+import type {
+  ApiChatsInbox,
+  ApiDirectMessage,
+  ApiDirectThreadMessages,
+  ApiEnvelope,
+  ApiFanDetail,
+  ApiFixture,
+  ApiJoinRequest,
+  ApiListing,
+  ApiListingDetail,
+  ApiListingMessage,
+  ApiListingRoomMessages,
+  ApiNearbyFan,
+  ApiProfile,
+  ApiWaveResult,
+} from '@/types/api';
 import type { WatchingVibe } from '@/types/matchbuddy';
 
 export class ApiConfigurationError extends Error {
   constructor(message = 'API base URL is not configured.') {
     super(message);
     this.name = 'ApiConfigurationError';
+  }
+}
+
+export class ApiRequestError extends Error {
+  status: number;
+
+  constructor(status: number, message: string) {
+    super(message);
+    this.name = 'ApiRequestError';
+    this.status = status;
   }
 }
 
@@ -47,7 +72,7 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
         ? payload.error
         : `Request failed with ${response.status}`;
 
-    throw new Error(message);
+    throw new ApiRequestError(response.status, message);
   }
 
   return payload as T;
@@ -55,6 +80,15 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
 
 export async function getFixtures() {
   const response = await apiFetch<ApiEnvelope<ApiFixture[]>>('/api/fixtures');
+  return response.data;
+}
+
+export async function sendEmailOtp(email: string) {
+  const response = await apiFetch<ApiEnvelope<{ email: string; sent: boolean }>>('/api/auth/send-otp', {
+    method: 'POST',
+    body: JSON.stringify({ email }),
+  });
+
   return response.data;
 }
 
@@ -110,6 +144,14 @@ export async function getFanById(
   return response.data;
 }
 
+export async function sendWave(fanId: string) {
+  const response = await apiFetch<ApiEnvelope<ApiWaveResult>>(`/api/fans/${fanId}/wave`, {
+    method: 'POST',
+  });
+
+  return response.data;
+}
+
 export async function getListings(params: {
   radiusKm?: number;
   latitude?: number;
@@ -133,6 +175,67 @@ export async function getListings(params: {
 
   const suffix = searchParams.size > 0 ? `?${searchParams.toString()}` : '';
   const response = await apiFetch<ApiEnvelope<ApiListing[]>>(`/api/listings${suffix}`);
+  return response.data;
+}
+
+export async function getListingById(
+  listingId: string,
+  params?: {
+    latitude?: number;
+    longitude?: number;
+  },
+) {
+  const searchParams = new URLSearchParams();
+
+  if (typeof params?.latitude === 'number' && typeof params?.longitude === 'number') {
+    searchParams.set('lat', String(params.latitude));
+    searchParams.set('lng', String(params.longitude));
+  }
+
+  const suffix = searchParams.size > 0 ? `?${searchParams.toString()}` : '';
+  const response = await apiFetch<ApiEnvelope<ApiListingDetail>>(`/api/listings/${listingId}${suffix}`);
+  return response.data;
+}
+
+export async function requestListingSpot(listingId: string, message?: string) {
+  const response = await apiFetch<ApiEnvelope<ApiJoinRequest>>(`/api/listings/${listingId}/join-requests`, {
+    method: 'POST',
+    body: JSON.stringify({ message }),
+  });
+
+  return response.data;
+}
+
+export async function getListingRoomMessages(listingId: string) {
+  const response = await apiFetch<ApiEnvelope<ApiListingRoomMessages>>(`/api/listings/${listingId}/messages`);
+  return response.data;
+}
+
+export async function sendListingRoomMessage(listingId: string, body: string) {
+  const response = await apiFetch<ApiEnvelope<ApiListingMessage>>(`/api/listings/${listingId}/messages`, {
+    method: 'POST',
+    body: JSON.stringify({ body }),
+  });
+
+  return response.data;
+}
+
+export async function getChatsInbox() {
+  const response = await apiFetch<ApiEnvelope<ApiChatsInbox>>('/api/chats/inbox');
+  return response.data;
+}
+
+export async function getDirectThreadMessages(threadId: string) {
+  const response = await apiFetch<ApiEnvelope<ApiDirectThreadMessages>>(`/api/chats/direct/${threadId}/messages`);
+  return response.data;
+}
+
+export async function sendDirectThreadMessage(threadId: string, body: string) {
+  const response = await apiFetch<ApiEnvelope<ApiDirectMessage>>(`/api/chats/direct/${threadId}/messages`, {
+    method: 'POST',
+    body: JSON.stringify({ body }),
+  });
+
   return response.data;
 }
 

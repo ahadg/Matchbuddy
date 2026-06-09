@@ -28,7 +28,7 @@ function TabIcon({
 export default function TabsLayout() {
   const theme = useTheme();
   const segments = useSegments() as string[];
-  const hideTabBar = segments.includes('listing') || segments.includes('fan');
+  const hideTabBar = segments.includes('listing') || segments.includes('fan') || segments.includes('chat') || segments.includes('room');
 
   return (
     <Tabs

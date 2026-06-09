@@ -5,45 +5,56 @@ import { Pressable, ScrollView, TextInput, View } from 'react-native';
 import { MatchText, SurfaceCard } from '@/components/matchbuddy/ui';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { ApiConfigurationError, getNearbyFans } from '@/lib/api';
+import { ApiConfigurationError, getNearbyFans, sendWave } from '@/lib/api';
 import { useDiscoveryStore } from '@/stores/discovery-store';
-import type { ApiNearbyFan } from '@/types/api';
+import { useSocialStore } from '@/stores/social-store';
+import type { ApiNearbyFan, ApiWaveStatus } from '@/types/api';
 
 const fallbackFans = [
   {
     id: 'maya-rivera',
-    name: 'Amir',
-    area: 'Westside',
-    distance: '0.4 km',
+    displayName: 'Amir',
+    neighborhood: 'Westside',
+    distanceKm: 0.4,
     vibe: 'Loud',
-    rating: '4.9',
+    rating: 4.9,
     initial: 'A',
     accent: '#66D8FF',
     secondary: '#9BFF62',
-    host: true,
+    isHost: true,
+    waveStatus: 'none' as const,
+    directThreadId: null,
+    isRemote: false,
   },
   {
     id: 'samir-khan',
-    name: 'Sofia',
-    area: 'Old Town',
-    distance: '0.9 km',
+    displayName: 'Sofia',
+    neighborhood: 'Old Town',
+    distanceKm: 0.9,
     vibe: 'Chill',
-    rating: '4.8',
+    rating: 4.8,
     initial: 'S',
     accent: '#FFB24E',
     secondary: '#FF6C78',
+    isHost: false,
+    waveStatus: 'none' as const,
+    directThreadId: null,
+    isRemote: false,
   },
   {
     id: 'jo-chen',
-    name: 'Yara',
-    area: 'Riverside',
-    distance: '1.2 km',
+    displayName: 'Yara',
+    neighborhood: 'Riverside',
+    distanceKm: 1.2,
     vibe: 'Family',
-    rating: '5',
+    rating: 5,
     initial: 'Y',
     accent: '#66D8FF',
     secondary: '#9D71FF',
-    host: true,
+    isHost: true,
+    waveStatus: 'none' as const,
+    directThreadId: null,
+    isRemote: false,
   },
 ];
 
@@ -56,6 +67,22 @@ const radarPoints = [
   { top: 214, left: 118, color: '#9D71FF' },
 ];
 
+type FanCardModel = {
+  id: string;
+  displayName: string;
+  neighborhood: string;
+  distanceKm: number;
+  vibe: string;
+  rating: number;
+  initial: string;
+  accent: string;
+  secondary: string;
+  isHost: boolean;
+  waveStatus: ApiWaveStatus;
+  directThreadId: null | string;
+  isRemote: boolean;
+};
+
 export default function FansScreen() {
   const router = useRouter();
   const theme = useTheme();
@@ -65,9 +92,12 @@ export default function FansScreen() {
   const radiusKm = useDiscoveryStore((state) => state.radiusKm);
   const setCustomRadiusKm = useDiscoveryStore((state) => state.setCustomRadiusKm);
   const setRadiusKm = useDiscoveryStore((state) => state.setRadiusKm);
+  const socialRevision = useSocialStore((state) => state.revision);
+  const bumpSocialRevision = useSocialStore((state) => state.bumpRevision);
   const [remoteFans, setRemoteFans] = useState<ApiNearbyFan[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [apiError, setApiError] = useState<null | string>(null);
+  const [activeWaveFanId, setActiveWaveFanId] = useState<null | string>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -107,26 +137,57 @@ export default function FansScreen() {
     return () => {
       cancelled = true;
     };
-  }, [anchor.latitude, anchor.longitude, radiusKm]);
+  }, [anchor.latitude, anchor.longitude, radiusKm, socialRevision]);
 
-  const cards = useMemo(() => {
+  const cards: FanCardModel[] = useMemo(() => {
     if (!remoteFans?.length) {
       return fallbackFans;
     }
 
     return remoteFans.map((fan) => ({
       id: fan.id,
-      name: fan.displayName,
-      area: fan.neighborhood,
-      distance: `${fan.distanceKm.toFixed(1)} km`,
+      displayName: fan.displayName,
+      neighborhood: fan.neighborhood,
+      distanceKm: fan.distanceKm,
       vibe: fan.vibe,
-      rating: fan.rating.toFixed(1),
+      rating: fan.rating,
       initial: fan.initial,
       accent: fan.vibe === 'Family' ? '#66D8FF' : fan.vibe === 'Chill' ? '#FFB24E' : '#66D8FF',
       secondary: fan.vibe === 'Family' ? '#9D71FF' : fan.vibe === 'Chill' ? '#FF6C78' : '#9BFF62',
-      host: fan.isHost,
+      isHost: fan.isHost,
+      waveStatus: fan.waveStatus,
+      directThreadId: fan.directThreadId,
+      isRemote: true,
     }));
   }, [remoteFans]);
+
+  async function handleWave(card: FanCardModel) {
+    if (!card.isRemote) {
+      router.push({ pathname: '/fan/[fanId]', params: { fanId: card.id } });
+      return;
+    }
+
+    if (card.waveStatus === 'mutual' && card.directThreadId) {
+      router.push({ pathname: '/chat/[threadId]', params: { threadId: card.directThreadId } });
+      return;
+    }
+
+    setActiveWaveFanId(card.id);
+    setApiError(null);
+
+    try {
+      const result = await sendWave(card.id);
+      bumpSocialRevision();
+
+      if (result.threadId && result.status === 'mutual') {
+        router.push({ pathname: '/chat/[threadId]', params: { threadId: result.threadId } });
+      }
+    } catch (error) {
+      setApiError(error instanceof Error ? error.message : 'Could not send your wave.');
+    } finally {
+      setActiveWaveFanId(null);
+    }
+  }
 
   return (
     <>
@@ -346,44 +407,46 @@ export default function FansScreen() {
                   <View style={{ flex: 1, gap: 4 }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
                       <MatchText variant="title" style={{ fontSize: 24, lineHeight: 26 }}>
-                        {fan.name}
+                        {fan.displayName}
                       </MatchText>
-                      {fan.host ? <HostBadge /> : null}
+                      {fan.isHost ? <HostBadge /> : null}
                     </View>
                     <MatchText tone="muted" style={{ fontSize: 14, lineHeight: 19 }}>
-                      {fan.area} · {fan.distance} ·
+                      {fan.neighborhood} · {fan.distanceKm.toFixed(1)} km ·
                     </MatchText>
                     <MatchText tone="muted" style={{ fontSize: 14, lineHeight: 19 }}>
                       {fan.vibe}
                     </MatchText>
-                    <MatchText style={{ color: '#FFC84B', fontSize: 15, fontWeight: '800' }}>★ {fan.rating}</MatchText>
+                    <MatchText style={{ color: '#FFC84B', fontSize: 15, fontWeight: '800' }}>★ {fan.rating.toFixed(1)}</MatchText>
                   </View>
 
-                  <View
-                    style={{
-                      width: 74,
-                      height: 74,
+                  <Pressable
+                    onPress={(event) => {
+                      event.stopPropagation();
+                      handleWave(fan).catch(() => undefined);
+                    }}
+                    style={({ pressed }) => ({
+                      width: 78,
+                      height: 78,
                       borderRadius: 22,
-                      backgroundColor: '#66D8FF',
+                      backgroundColor: waveButtonBackground(fan.waveStatus, theme.accent),
                       alignItems: 'center',
                       justifyContent: 'center',
-                    }}>
-                    <MatchText variant="title" style={{ color: '#081018', fontSize: 24, lineHeight: 26, zIndex: 1 }}>
-                      ☞
-                    </MatchText>
-                    <View
+                      borderWidth: 1,
+                      borderColor: waveButtonBorder(fan.waveStatus),
+                      opacity: pressed ? 0.92 : 1,
+                    })}>
+                    <MatchText
+                      variant="subtitle"
                       style={{
-                        position: 'absolute',
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        borderRadius: 22,
-                        backgroundColor: theme.accent,
-                        opacity: 0.7,
-                      }}
-                    />
-                  </View>
+                        color: waveButtonForeground(fan.waveStatus),
+                        fontSize: 14,
+                        lineHeight: 16,
+                        textAlign: 'center',
+                      }}>
+                      {activeWaveFanId === fan.id ? '...' : waveButtonLabel(fan.waveStatus)}
+                    </MatchText>
+                  </Pressable>
                 </View>
               </SurfaceCard>
             </Pressable>
@@ -392,6 +455,70 @@ export default function FansScreen() {
       </ScrollView>
     </>
   );
+}
+
+function waveButtonLabel(status: ApiWaveStatus) {
+  if (status === 'mutual') {
+    return 'Chat';
+  }
+
+  if (status === 'pending') {
+    return 'Sent';
+  }
+
+  if (status === 'received') {
+    return 'Back';
+  }
+
+  return 'Wave';
+}
+
+function waveButtonBackground(status: ApiWaveStatus, accent: string) {
+  if (status === 'mutual') {
+    return 'rgba(160,255,97,0.20)';
+  }
+
+  if (status === 'pending') {
+    return 'rgba(157,113,255,0.22)';
+  }
+
+  if (status === 'received') {
+    return 'rgba(255,178,78,0.22)';
+  }
+
+  return accent;
+}
+
+function waveButtonForeground(status: ApiWaveStatus) {
+  if (status === 'pending') {
+    return '#EAE6FF';
+  }
+
+  if (status === 'received') {
+    return '#FFCA6B';
+  }
+
+  if (status === 'mutual') {
+    return '#9BFF62';
+  }
+
+  return '#081018';
+}
+
+function waveButtonBorder(status: ApiWaveStatus) {
+  if (status === 'mutual') {
+    return 'rgba(160,255,97,0.30)';
+  }
+
+  if (status === 'pending') {
+    return 'rgba(157,113,255,0.26)';
+  }
+
+  if (status === 'received') {
+    return 'rgba(255,178,78,0.28)';
+  }
+
+  return 'rgba(160,255,97,0.28)';
 }
 
 function BadgePill({ label }: { label: string }) {

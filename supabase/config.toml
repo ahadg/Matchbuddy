@@ -1,0 +1,12 @@
+project_id = "matchbuddy"
+
+[auth]
+enabled = true
+
+[auth.email.template.confirmation]
+subject = "Your MatchBuddy verification code"
+content_path = "./supabase/templates/confirm-signup.html"
+
+[auth.email.template.magic_link]
+subject = "Your MatchBuddy sign-in code"
+content_path = "./supabase/templates/magic-link-or-otp.html"

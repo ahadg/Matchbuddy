@@ -28,7 +28,9 @@ export default function ListingsLayout() {
         },
       }}>
       <Stack.Screen name="listings" />
+      <Stack.Screen name="chat/[threadId]" />
       <Stack.Screen name="listing/[listingId]" />
+      <Stack.Screen name="room/[listingId]" />
     </Stack>
   );
 }

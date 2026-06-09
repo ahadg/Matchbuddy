@@ -4,9 +4,11 @@ import { ActivityIndicator, Pressable, ScrollView, TextInput, View } from 'react
 
 import { MatchText, SurfaceCard } from '@/components/matchbuddy/ui';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { appConfig } from '@/lib/config';
 import { useAuthStore } from '@/stores/auth-store';
-import { useTheme } from '@/hooks/use-theme';
+
+const OTP_LENGTH = 8;
 
 export default function VerifyOtpScreen() {
   const router = useRouter();
@@ -19,7 +21,7 @@ export default function VerifyOtpScreen() {
   const clearPendingEmail = useAuthStore((state) => state.clearPendingEmail);
   const verifyOtp = useAuthStore((state) => state.verifyOtp);
 
-  if (!appConfig.supabase.enabled) {
+  if (!appConfig.api.enabled || !appConfig.supabase.enabled) {
     return <Redirect href="/sign-in" />;
   }
 
@@ -58,11 +60,12 @@ export default function VerifyOtpScreen() {
                   One-time code
                 </MatchText>
                 <TextInput
-                  autoCapitalize="characters"
                   keyboardType="number-pad"
+                  maxLength={OTP_LENGTH}
                   placeholder="123456"
                   placeholderTextColor="rgba(232, 238, 245, 0.45)"
                   selectionColor={theme.accent}
+                  textContentType="oneTimeCode"
                   style={{
                     borderRadius: 18,
                     borderWidth: 1,
@@ -75,7 +78,9 @@ export default function VerifyOtpScreen() {
                     letterSpacing: 4,
                   }}
                   value={token}
-                  onChangeText={setToken}
+                  onChangeText={(value) => {
+                    setToken(value.replace(/\D/g, '').slice(0, OTP_LENGTH));
+                  }}
                 />
               </View>
 
@@ -103,7 +108,7 @@ export default function VerifyOtpScreen() {
                   backgroundColor: theme.accent,
                   alignItems: 'center',
                   justifyContent: 'center',
-                  opacity: pressed ? 0.94 : 1,
+                  opacity: pressed ? 0.94 : token.length === OTP_LENGTH ? 1 : 0.75,
                 })}>
                 {loading ? (
                   <ActivityIndicator color="#111722" />

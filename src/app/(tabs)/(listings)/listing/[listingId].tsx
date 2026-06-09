@@ -1,18 +1,145 @@
-import { Stack } from 'expo-router';
-import { ScrollView, View } from 'react-native';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, View } from 'react-native';
 
 import { ActionButton, MatchText, SurfaceCard } from '@/components/matchbuddy/ui';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-
-const extras = ['🍿 Snacks', '🍺 BYOB', '🎥 Projector', '🌆 Balcony', '❄️ AC'];
+import { ApiConfigurationError, getListingById, requestListingSpot } from '@/lib/api';
+import { useDiscoveryStore } from '@/stores/discovery-store';
+import { useSocialStore } from '@/stores/social-store';
+import type { ApiListingDetail, ApiListingRequestStatus } from '@/types/api';
 
 export default function ListingDetailScreen() {
+  const router = useRouter();
   const theme = useTheme();
+  const { listingId } = useLocalSearchParams<{ listingId: string }>();
+  const anchor = useDiscoveryStore((state) => state.anchor);
+  const socialRevision = useSocialStore((state) => state.revision);
+  const bumpSocialRevision = useSocialStore((state) => state.bumpRevision);
+  const [listing, setListing] = useState<ApiListingDetail | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState<null | string>(null);
+  const [requestingSpot, setRequestingSpot] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadListing() {
+      if (!listingId) {
+        return;
+      }
+
+      setLoading(true);
+      setLoadError(null);
+
+      try {
+        const remoteListing = await getListingById(listingId, {
+          latitude: anchor.latitude,
+          longitude: anchor.longitude,
+        });
+
+        if (!cancelled) {
+          setListing(remoteListing);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          if (!(error instanceof ApiConfigurationError)) {
+            setLoadError(error instanceof Error ? error.message : 'Could not load this room.');
+          }
+          setListing(null);
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    }
+
+    loadListing().catch(() => undefined);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [anchor.latitude, anchor.longitude, listingId, socialRevision]);
+
+  const ctaLabel = useMemo(() => {
+    if (!listing) {
+      return 'Request a spot';
+    }
+
+    if (listing.isHost || listing.canOpenRoom) {
+      return 'Open room';
+    }
+
+    if (!listing.isOpen || listing.spotsLeft === 0) {
+      return 'Room full';
+    }
+
+    if (listing.myRequestStatus === 'pending') {
+      return 'Request pending';
+    }
+
+    if (listing.myRequestStatus === 'declined') {
+      return 'Request again';
+    }
+
+    return 'Request a spot';
+  }, [listing]);
+
+  async function handlePrimaryAction() {
+    if (!listing) {
+      return;
+    }
+
+    if (listing.isHost || listing.canOpenRoom) {
+      router.push({ pathname: '/room/[listingId]', params: { listingId: listing.id } });
+      return;
+    }
+
+    if (!listing.isOpen || listing.spotsLeft === 0 || listing.myRequestStatus === 'pending') {
+      return;
+    }
+
+    setRequestingSpot(true);
+    setLoadError(null);
+
+    try {
+      const joinRequest = await requestListingSpot(listing.id);
+      const nextStatus = normalizeJoinStatus(joinRequest.status);
+      setListing((current) =>
+        current
+          ? {
+              ...current,
+              myRequestStatus: nextStatus,
+              canOpenRoom: nextStatus === 'approved',
+              approvedGuests: nextStatus === 'approved' && current.myRequestStatus !== 'approved'
+                ? current.approvedGuests + 1
+                : current.approvedGuests,
+              spotsLeft:
+                nextStatus === 'approved' && current.myRequestStatus !== 'approved'
+                  ? Math.max(0, current.spotsLeft - 1)
+                  : current.spotsLeft,
+            }
+          : current,
+      );
+      bumpSocialRevision();
+
+      if (joinRequest.status === 'approved') {
+        router.push({ pathname: '/room/[listingId]', params: { listingId: listing.id } });
+      }
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : 'Could not request this room.');
+    } finally {
+      setRequestingSpot(false);
+    }
+  }
+
+  const vibeScore = listing ? Math.max(1, Math.min(10, Math.round(listing.hostRating * 2))) : 0;
 
   return (
     <>
-      <Stack.Screen options={{ title: 'Listing detail' }} />
+      <Stack.Screen options={{ title: listing?.hostName ?? 'Listing detail' }} />
       <View style={{ flex: 1, backgroundColor: theme.background }}>
         <ScrollView
           contentInsetAdjustmentBehavior="automatic"
@@ -32,7 +159,9 @@ export default function ListingDetailScreen() {
 
               <View style={{ paddingHorizontal: Spacing.three, paddingTop: 18, gap: 22 }}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <CircleIcon label="✕" />
+                  <Pressable onPress={() => router.back()}>
+                    <CircleIcon label="✕" />
+                  </Pressable>
                   <View style={{ flexDirection: 'row', gap: 14 }}>
                     <CircleIcon label="♡" warm />
                     <CircleIcon label="⋯" coral />
@@ -41,97 +170,132 @@ export default function ListingDetailScreen() {
 
                 <View style={{ marginTop: 146, gap: 14 }}>
                   <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
-                    <Badge label="🔥 LOUD & ROWDY" tone="hot" />
-                    <Badge label="TONIGHT" tone="dark" />
+                    <Badge label={listing?.vibe === 'Loud' ? '🔥 LOUD & ROWDY' : `${listing?.vibe ?? 'WATCH PARTY'}`.toUpperCase()} tone="hot" />
+                    <Badge label={listing?.fixtureStage?.toUpperCase() ?? 'TONIGHT'} tone="dark" />
                   </View>
 
-                  <View style={{ gap: 6 }}>
-                    <MatchText variant="hero" style={{ fontSize: 34, lineHeight: 36 }}>
-                      Amir&apos;s rooftop
-                    </MatchText>
-                    <MatchText style={{ fontSize: 18, lineHeight: 24 }}>
-                      ARG 🇦🇷 vs 🇫🇷 FRA · Semi-Final
-                    </MatchText>
-                  </View>
+                  {loading && !listing ? (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                      <ActivityIndicator color={theme.accent} />
+                      <MatchText tone="muted">Loading room…</MatchText>
+                    </View>
+                  ) : listing ? (
+                    <View style={{ gap: 6 }}>
+                      <MatchText variant="hero" style={{ fontSize: 34, lineHeight: 36 }}>
+                        {listing.hostName}&apos;s room
+                      </MatchText>
+                      <MatchText style={{ fontSize: 18, lineHeight: 24 }}>
+                        {listing.homeCode} {` `}
+                        {listing.homeTeam}{' '}
+                        vs {listing.awayTeam} {listing.awayCode} · {listing.fixtureStage}
+                      </MatchText>
+                    </View>
+                  ) : (
+                    <View style={{ gap: 6 }}>
+                      <MatchText variant="hero" style={{ fontSize: 34, lineHeight: 36 }}>
+                        Room unavailable
+                      </MatchText>
+                      <MatchText style={{ fontSize: 18, lineHeight: 24 }}>
+                        {loadError ?? 'This listing could not be loaded right now.'}
+                      </MatchText>
+                    </View>
+                  )}
                 </View>
               </View>
             </View>
 
-            <View style={{ paddingHorizontal: Spacing.three, paddingTop: 16, gap: 18 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-                <AvatarTile />
-                <View style={{ flex: 1, gap: 4 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    <MatchText variant="title" style={{ fontSize: 26, lineHeight: 28 }}>
-                      Amir K.
-                    </MatchText>
-                    <View
-                      style={{
-                        width: 28,
-                        height: 28,
-                        borderRadius: 999,
-                        backgroundColor: theme.accent,
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                      }}>
-                      <MatchText variant="title" style={{ color: '#0B121A', fontSize: 17, lineHeight: 17 }}>
-                        ✓
+            {listing ? (
+              <View style={{ paddingHorizontal: Spacing.three, paddingTop: 16, gap: 18 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+                  <AvatarTile initial={listing.hostInitial} />
+                  <View style={{ flex: 1, gap: 4 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <MatchText variant="title" style={{ fontSize: 26, lineHeight: 28 }}>
+                        {listing.hostName}
                       </MatchText>
+                      {listing.hostVerified ? (
+                        <View
+                          style={{
+                            width: 28,
+                            height: 28,
+                            borderRadius: 999,
+                            backgroundColor: theme.accent,
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          }}>
+                          <MatchText variant="title" style={{ color: '#0B121A', fontSize: 17, lineHeight: 17 }}>
+                            ✓
+                          </MatchText>
+                        </View>
+                      ) : null}
                     </View>
+                    <MatchText tone="muted" style={{ fontSize: 14, lineHeight: 19 }}>
+                      ★ {listing.hostRating.toFixed(1)} · {listing.hostHostWins} watches hosted
+                    </MatchText>
+                    <MatchText tone="muted" style={{ fontSize: 14, lineHeight: 19 }}>
+                      {listing.neighborhood} · {listing.distanceKm?.toFixed(1) ?? '--'} km
+                    </MatchText>
                   </View>
-                  <MatchText tone="muted" style={{ fontSize: 14, lineHeight: 19 }}>
-                    ⭐ 4.9 · 23 watches hosted
-                  </MatchText>
                 </View>
-                <View
+
+                <View style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.08)' }} />
+
+                <View style={{ flexDirection: 'row', gap: 12 }}>
+                  <StatPill label="SPOTS" value={`${listing.spotsLeft}/${listing.maxGuests}`} note="left" accent />
+                  <StatPill label="VIBE" value={`${vibeScore}/10`} note="rated" />
+                  <StatPill
+                    label="SCREEN"
+                    value={listing.hostSetup?.screenSize ?? 'Shared'}
+                    note={listing.hostSetup?.displayType ?? 'No TV listed'}
+                  />
+                </View>
+
+                <View style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.08)' }} />
+
+                <View style={{ gap: 14 }}>
+                  <MatchText variant="title" style={{ fontSize: 22, lineHeight: 24 }}>
+                    Extras
+                  </MatchText>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+                    {listing.extras.map((extra) => (
+                      <Chip key={extra} label={extra} />
+                    ))}
+                  </View>
+                </View>
+
+                <View style={{ gap: 14 }}>
+                  <MatchText variant="title" style={{ fontSize: 22, lineHeight: 24 }}>
+                    House rules
+                  </MatchText>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+                    {listing.houseRules.map((rule) => (
+                      <Chip key={rule} label={rule} muted />
+                    ))}
+                  </View>
+                </View>
+
+                <SurfaceCard
                   style={{
-                    paddingHorizontal: 16,
-                    paddingVertical: 10,
-                    borderRadius: 999,
-                    borderWidth: 1,
+                    borderRadius: 26,
+                    padding: 18,
+                    backgroundColor: '#151B2D',
                     borderColor: 'rgba(255,255,255,0.10)',
-                    backgroundColor: '#1A2032',
+                    gap: 10,
                   }}>
-                  <MatchText variant="title" style={{ fontSize: 16, lineHeight: 18 }}>
-                    0.4 km
+                  <MatchText variant="title" style={{ fontSize: 20, lineHeight: 22 }}>
+                    Host note
                   </MatchText>
-                </View>
+                  <MatchText tone="muted" style={{ fontSize: 14, lineHeight: 20 }}>
+                    {listing.joinMessage || listing.hostBio}
+                  </MatchText>
+                  <MatchText tone="muted" style={{ fontSize: 13 }}>
+                    Venue: {listing.venue}
+                  </MatchText>
+                </SurfaceCard>
+
+                {loadError ? <MatchText tone="warm">{loadError}</MatchText> : null}
               </View>
-
-              <View style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.08)' }} />
-
-              <View style={{ flexDirection: 'row', gap: 12 }}>
-                <StatPill label="SPOTS" value="3/8" note="left" accent />
-                <StatPill label="VIBE" value="9/10" note="rated" />
-                <StatPill label="SCREEN" value={'75"'} note="4K HDR" />
-              </View>
-
-              <View style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.08)' }} />
-
-              <View style={{ gap: 14 }}>
-                <MatchText variant="title" style={{ fontSize: 22, lineHeight: 24 }}>
-                  Extras
-                </MatchText>
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
-                  {extras.map((extra) => (
-                    <View
-                      key={extra}
-                      style={{
-                        paddingHorizontal: 16,
-                        paddingVertical: 10,
-                        borderRadius: 999,
-                        borderWidth: 1,
-                        borderColor: 'rgba(255,255,255,0.10)',
-                        backgroundColor: '#151B2D',
-                      }}>
-                      <MatchText variant="title" style={{ fontSize: 14, lineHeight: 16 }}>
-                        {extra}
-                      </MatchText>
-                    </View>
-                  ))}
-                </View>
-              </View>
-            </View>
+            ) : null}
           </View>
         </ScrollView>
 
@@ -163,15 +327,17 @@ export default function ListingDetailScreen() {
                 </MatchText>
                 <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
                   <MatchText variant="hero" style={{ fontSize: 30, lineHeight: 32 }}>
-                    Free
+                    {listing?.priceNote?.split('·')[0]?.trim() ?? 'Free'}
                   </MatchText>
                   <MatchText tone="muted" style={{ fontSize: 14 }}>
-                    · split snacks
+                    {listing?.priceNote?.includes('·') ? `· ${listing.priceNote.split('·').slice(1).join('·').trim()}` : ''}
                   </MatchText>
                 </View>
               </View>
               <View style={{ flex: 1 }}>
-                <ActionButton tone="accent">Request a spot</ActionButton>
+                <ActionButton tone={ctaToneForListing(listing)} onPress={handlePrimaryAction}>
+                  {requestingSpot ? 'Working…' : ctaLabel}
+                </ActionButton>
               </View>
             </View>
           </View>
@@ -179,6 +345,38 @@ export default function ListingDetailScreen() {
       </View>
     </>
   );
+}
+
+function normalizeJoinStatus(status: string): ApiListingRequestStatus {
+  if (status === 'approved' || status === 'pending' || status === 'declined' || status === 'cancelled') {
+    return status;
+  }
+
+  return 'none';
+}
+
+function ctaToneForListing(listing: ApiListingDetail | null) {
+  if (!listing) {
+    return 'default' as const;
+  }
+
+  if (listing.isHost || listing.canOpenRoom) {
+    return 'accent' as const;
+  }
+
+  if (listing.myRequestStatus === 'pending') {
+    return 'default' as const;
+  }
+
+  if (!listing.isOpen || listing.spotsLeft === 0) {
+    return 'muted' as const;
+  }
+
+  if (listing.myRequestStatus === 'declined') {
+    return 'warm' as const;
+  }
+
+  return 'accent' as const;
 }
 
 function CircleIcon({ label, warm = false, coral = false }: { label: string; warm?: boolean; coral?: boolean }) {
@@ -223,7 +421,7 @@ function Badge({ label, tone }: { label: string; tone: 'hot' | 'dark' }) {
   );
 }
 
-function AvatarTile() {
+function AvatarTile({ initial }: { initial: string }) {
   return (
     <View
       style={{
@@ -247,7 +445,7 @@ function AvatarTile() {
         }}
       />
       <MatchText variant="hero" style={{ color: '#091018', fontSize: 36, lineHeight: 38, zIndex: 1 }}>
-        A
+        {initial}
       </MatchText>
     </View>
   );
@@ -281,15 +479,33 @@ function StatPill({
         variant="hero"
         style={{
           textAlign: 'center',
-          fontSize: 31,
-          lineHeight: 33,
+          fontSize: 29,
+          lineHeight: 31,
           color: accent ? '#9BFF62' : undefined,
         }}>
         {value}
       </MatchText>
-      <MatchText tone="muted" style={{ textAlign: 'center', fontSize: 14 }}>
+      <MatchText tone="muted" style={{ textAlign: 'center', fontSize: 13 }}>
         {note}
       </MatchText>
     </SurfaceCard>
+  );
+}
+
+function Chip({ label, muted = false }: { label: string; muted?: boolean }) {
+  return (
+    <View
+      style={{
+        paddingHorizontal: 16,
+        paddingVertical: 10,
+        borderRadius: 999,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.10)',
+        backgroundColor: muted ? '#11182A' : '#151B2D',
+      }}>
+      <MatchText variant="title" style={{ fontSize: 14, lineHeight: 16 }}>
+        {label}
+      </MatchText>
+    </View>
   );
 }

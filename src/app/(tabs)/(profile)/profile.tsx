@@ -1,4 +1,4 @@
-import { Stack } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import { Pressable, ScrollView, View } from 'react-native';
 
 import { MatchText, SurfaceCard } from '@/components/matchbuddy/ui';
@@ -6,24 +6,32 @@ import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { appConfig } from '@/lib/config';
 import { useAuthStore } from '@/stores/auth-store';
-
-const teams = [
-  { name: 'Real Madrid', tone: 'accent' },
-  { name: 'Argentina', tone: 'warm' },
-  { name: 'Liverpool', tone: 'danger' },
-] as const;
-
-const rows = [
-  { icon: '✦', label: 'Match Day Mode', value: 'On' },
-  { icon: '♕', label: 'Hosting', value: 'Active' },
-  { icon: '🔒', label: 'Privacy', value: 'Address hidden' },
-];
+import { useProfileStore } from '@/stores/profile-store';
 
 export default function ProfileScreen() {
+  const router = useRouter();
   const theme = useTheme();
   const session = useAuthStore((state) => state.session);
   const signOut = useAuthStore((state) => state.signOut);
-  const accountLabel = appConfig.supabase.enabled && session ? 'Sign out' : 'Edit profile';
+  const profile = useProfileStore((state) => state.profile);
+  const loading = useProfileStore((state) => state.loading);
+
+  const displayName = profile?.displayName ?? 'MatchBuddy fan';
+  const initial = displayName[0]?.toUpperCase() ?? 'M';
+  const setupSummary = profile?.setup
+    ? `${profile.setup.screenSize} · ${profile.setup.displayType} · ${profile.setup.audio}`
+    : 'Add your TV setup in profile setup';
+  const locationSummary =
+    profile?.city && profile?.neighborhood
+      ? `${profile.neighborhood} · ${profile.city}`
+      : 'Finish your profile to unlock nearby matches';
+  const teams = profile?.favouriteTeams ?? [];
+
+  const rows = [
+    { icon: '✦', label: 'Match Day Mode', value: profile?.matchDayModeFixtureId ? 'On' : 'Off' },
+    { icon: '♕', label: 'Hosting', value: profile?.isHost ? 'Active' : 'Guest mode' },
+    { icon: '📺', label: 'Setup', value: profile?.setup ? profile.setup.displayType : 'Not added' },
+  ] as const;
 
   return (
     <>
@@ -40,8 +48,6 @@ export default function ProfileScreen() {
               height: 144,
               backgroundColor: '#161B2C',
               overflow: 'hidden',
-              borderBottomLeftRadius: 0,
-              borderBottomRightRadius: 0,
             }}>
             <View style={{ position: 'absolute', left: -8, top: 18, width: 170, height: 170, borderRadius: 60, backgroundColor: 'rgba(101, 246, 178, 0.10)' }} />
             <View style={{ position: 'absolute', right: -24, top: -6, width: 190, height: 150, borderRadius: 62, backgroundColor: 'rgba(255, 141, 98, 0.12)' }} />
@@ -63,66 +69,84 @@ export default function ProfileScreen() {
                 }}>
                 <View style={{ position: 'absolute', inset: 0, borderRadius: 26, backgroundColor: theme.accent, opacity: 0.62 }} />
                 <MatchText variant="hero" style={{ color: '#091019', fontSize: 48, lineHeight: 50, zIndex: 1 }}>
-                  J
+                  {initial}
                 </MatchText>
-                <View
-                  style={{
-                    position: 'absolute',
-                    right: -2,
-                    bottom: -2,
-                    width: 40,
-                    height: 40,
-                    borderRadius: 999,
-                    backgroundColor: theme.accent,
-                    borderWidth: 3,
-                    borderColor: theme.background,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}>
-                  <MatchText variant="title" style={{ color: '#0B121C', fontSize: 22, lineHeight: 24 }}>
-                    ✓
-                  </MatchText>
-                </View>
+                {profile?.verified ? (
+                  <View
+                    style={{
+                      position: 'absolute',
+                      right: -2,
+                      bottom: -2,
+                      width: 40,
+                      height: 40,
+                      borderRadius: 999,
+                      backgroundColor: theme.accent,
+                      borderWidth: 3,
+                      borderColor: theme.background,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}>
+                    <MatchText variant="title" style={{ color: '#0B121C', fontSize: 22, lineHeight: 24 }}>
+                      ✓
+                    </MatchText>
+                  </View>
+                ) : null}
               </View>
 
-              <Pressable
-                onPress={() => {
-                  if (appConfig.supabase.enabled && session) {
-                    signOut().catch(() => undefined);
-                  }
-                }}
-                style={{
-                  marginTop: 62,
-                  paddingHorizontal: 24,
-                  paddingVertical: 16,
-                  borderRadius: 999,
-                  backgroundColor: '#1A2032',
-                  borderWidth: 1,
-                  borderColor: 'rgba(255,255,255,0.10)',
-                }}>
-                <MatchText variant="title" style={{ fontSize: 18, lineHeight: 20 }}>
-                  {accountLabel}
-                </MatchText>
-              </Pressable>
+              <View style={{ alignItems: 'flex-end', gap: 10 }}>
+                <Pressable
+                  onPress={() => {
+                    router.push('/profile-setup');
+                  }}
+                  style={{
+                    marginTop: 62,
+                    paddingHorizontal: 24,
+                    paddingVertical: 16,
+                    borderRadius: 999,
+                    backgroundColor: '#1A2032',
+                    borderWidth: 1,
+                    borderColor: 'rgba(255,255,255,0.10)',
+                  }}>
+                  <MatchText variant="title" style={{ fontSize: 18, lineHeight: 20 }}>
+                    {profile ? 'Edit profile' : 'Create profile'}
+                  </MatchText>
+                </Pressable>
+
+                {appConfig.supabase.enabled && session ? (
+                  <Pressable
+                    onPress={() => {
+                      signOut().catch(() => undefined);
+                    }}
+                    style={({ pressed }) => ({
+                      opacity: pressed ? 0.7 : 1,
+                    })}>
+                    <MatchText tone="muted" style={{ fontSize: 14, lineHeight: 18 }}>
+                      Sign out
+                    </MatchText>
+                  </Pressable>
+                ) : null}
+              </View>
             </View>
 
             <View style={{ gap: 8 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
                 <MatchText variant="hero" style={{ fontSize: 38, lineHeight: 40 }}>
-                  Jamal R.
+                  {displayName}
                 </MatchText>
-                <View
-                  style={{
-                    paddingHorizontal: 14,
-                    paddingVertical: 7,
-                    borderRadius: 12,
-                    backgroundColor: 'rgba(160,255,97,0.18)',
-                  }}>
-                  <MatchText style={{ color: theme.accent, fontWeight: '800', fontSize: 14 }}>VERIFIED</MatchText>
-                </View>
+                {profile?.verified ? (
+                  <View
+                    style={{
+                      paddingHorizontal: 14,
+                      paddingVertical: 7,
+                      borderRadius: 12,
+                      backgroundColor: 'rgba(160,255,97,0.18)',
+                    }}>
+                    <MatchText style={{ color: theme.accent, fontWeight: '800', fontSize: 14 }}>VERIFIED</MatchText>
+                  </View>
+                ) : null}
               </View>
               <MatchText tone="muted" style={{ fontSize: 15, lineHeight: 20 }}>
-                📍 Westside · Dubai · he/him
+                {locationSummary}
               </MatchText>
               {appConfig.supabase.enabled && session?.user?.email ? (
                 <MatchText tone="muted" style={{ fontSize: 14, lineHeight: 18 }}>
@@ -130,49 +154,80 @@ export default function ProfileScreen() {
                 </MatchText>
               ) : null}
               <MatchText style={{ fontSize: 16, lineHeight: 24 }}>
-                Lifelong Madridista. Host loud watch-parties{'\n'}on my rooftop. Snacks always on me 🍿
+                {profile?.bio?.trim() || 'Add your football personality, favourite teams, and setup so fans know what kind of watch party you bring.'}
               </MatchText>
             </View>
 
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
-              {teams.map((team) => (
+              {teams.length > 0 ? (
+                teams.map((team, index) => {
+                  const tone =
+                    index % 3 === 0 ? theme.accent : index % 3 === 1 ? theme.warm : theme.danger;
+                  const backgroundColor =
+                    index % 3 === 0
+                      ? 'rgba(160,255,97,0.12)'
+                      : index % 3 === 1
+                        ? 'rgba(255,141,98,0.14)'
+                        : 'rgba(157,123,255,0.14)';
+
+                  return (
+                    <View
+                      key={team}
+                      style={{
+                        paddingHorizontal: 14,
+                        paddingVertical: 9,
+                        borderRadius: 999,
+                        borderWidth: 1,
+                        borderColor: backgroundColor,
+                        backgroundColor,
+                      }}>
+                      <MatchText
+                        style={{
+                          color: tone,
+                          fontSize: 14,
+                          fontWeight: '800',
+                        }}>
+                        {team}
+                      </MatchText>
+                    </View>
+                  );
+                })
+              ) : (
                 <View
-                  key={team.name}
                   style={{
                     paddingHorizontal: 14,
                     paddingVertical: 9,
                     borderRadius: 999,
                     borderWidth: 1,
-                    borderColor:
-                      team.tone === 'accent'
-                        ? 'rgba(160,255,97,0.24)'
-                        : team.tone === 'warm'
-                          ? 'rgba(255,141,98,0.24)'
-                          : 'rgba(157,123,255,0.24)',
-                    backgroundColor:
-                      team.tone === 'accent'
-                        ? 'rgba(160,255,97,0.12)'
-                        : team.tone === 'warm'
-                          ? 'rgba(255,141,98,0.14)'
-                          : 'rgba(157,123,255,0.14)',
+                    borderColor: 'rgba(255,255,255,0.10)',
+                    backgroundColor: 'rgba(255,255,255,0.06)',
                   }}>
-                  <MatchText
-                    style={{
-                      color: team.tone === 'accent' ? theme.accent : team.tone === 'warm' ? theme.warm : theme.danger,
-                      fontSize: 14,
-                      fontWeight: '800',
-                    }}>
-                    ⚽ {team.name}
+                  <MatchText tone="muted" style={{ fontSize: 14, fontWeight: '700' }}>
+                    Add favourite teams
                   </MatchText>
                 </View>
-              ))}
+              )}
             </View>
 
             <View style={{ flexDirection: 'row', gap: 12 }}>
-              <StatCard top="23" bottom="HOSTED" />
-              <StatCard top="★ 4.9" bottom="RATING" />
-              <StatCard top="142" bottom="WAVES" />
+              <StatCard top={profile?.isHost ? 'Host' : 'Guest'} bottom="MODE" />
+              <StatCard top={profile ? String(profile.rating.toFixed(1)) : '--'} bottom="RATING" />
+              <StatCard top={profile ? `${profile.waveBackRate}%` : '--'} bottom="WAVES BACK" />
             </View>
+
+            <SurfaceCard
+              style={{
+                padding: 18,
+                borderRadius: 30,
+                backgroundColor: '#171D30',
+                borderColor: 'rgba(255,255,255,0.10)',
+                gap: 8,
+              }}>
+              <MatchText variant="subtitle">Setup summary</MatchText>
+              <MatchText tone="muted" style={{ fontSize: 15, lineHeight: 20 }}>
+                {loading ? 'Refreshing your profile…' : setupSummary}
+              </MatchText>
+            </SurfaceCard>
 
             <SurfaceCard
               style={{
@@ -235,7 +290,7 @@ function StatCard({ top, bottom }: { top: string; bottom: string }) {
         backgroundColor: '#171D30',
         borderColor: 'rgba(255,255,255,0.10)',
       }}>
-      <MatchText variant="hero" style={{ textAlign: 'center', fontSize: 32, lineHeight: 34 }}>
+      <MatchText variant="hero" style={{ textAlign: 'center', fontSize: 26, lineHeight: 30 }}>
         {top}
       </MatchText>
       <MatchText variant="label" tone="muted" style={{ textAlign: 'center', fontSize: 14 }}>

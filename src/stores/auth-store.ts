@@ -1,8 +1,11 @@
 import type { Session, User } from '@supabase/supabase-js';
 import { create } from 'zustand';
 
+import { sendEmailOtp } from '@/lib/api';
 import { appConfig } from '@/lib/config';
 import { supabase } from '@/lib/supabase';
+
+const OTP_LENGTH = 8;
 
 type AuthResult = {
   error: null | string;
@@ -79,8 +82,11 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
     return bootstrapPromise;
   },
   sendOtp: async (email) => {
-    if (!appConfig.supabase.enabled) {
-      return { error: 'Supabase is not configured yet. Add the Expo public Supabase env vars first.' };
+    if (!appConfig.api.enabled || !appConfig.supabase.enabled) {
+      return {
+        error:
+          'Auth is not configured yet. Add EXPO_PUBLIC_API_BASE_URL, EXPO_PUBLIC_SUPABASE_URL, and EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY first.',
+      };
     }
 
     const normalizedEmail = email.trim().toLowerCase();
@@ -91,20 +97,17 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
 
     set({ loading: true });
 
-    const { error } = await supabase.auth.signInWithOtp({
-      email: normalizedEmail,
-      options: {
-        shouldCreateUser: true,
-      },
-    });
-
-    set({ loading: false });
-
-    if (error) {
-      return { error: error.message };
+    try {
+      await sendEmailOtp(normalizedEmail);
+    } catch (error) {
+      set({ loading: false });
+      return { error: error instanceof Error ? error.message : 'Unable to send a sign-in code right now.' };
     }
 
-    set({ pendingEmail: normalizedEmail });
+    set({
+      loading: false,
+      pendingEmail: normalizedEmail,
+    });
 
     return { error: null };
   },
@@ -114,13 +117,18 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
     }
 
     const pendingEmail = get().pendingEmail.trim().toLowerCase();
+    const normalizedToken = token.replace(/\D/g, '').slice(0, OTP_LENGTH);
 
     if (!pendingEmail) {
       return { error: 'Start with your email first so we know where to verify the code.' };
     }
 
-    if (!token.trim()) {
+    if (!normalizedToken) {
       return { error: 'Enter the verification code from your email.' };
+    }
+
+    if (normalizedToken.length !== OTP_LENGTH) {
+      return { error: `Enter the ${OTP_LENGTH}-digit verification code from your email.` };
     }
 
     set({ loading: true });
@@ -130,7 +138,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
       error,
     } = await supabase.auth.verifyOtp({
       email: pendingEmail,
-      token: token.trim(),
+      token: normalizedToken,
       type: 'email',
     });
 

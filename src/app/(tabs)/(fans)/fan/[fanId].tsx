@@ -1,4 +1,4 @@
-import { Stack, useLocalSearchParams } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, ScrollView, View } from 'react-native';
 
@@ -18,20 +18,26 @@ import {
 import { MaxContentWidth, Radii, Spacing } from '@/constants/theme';
 import { fansById, worldCupFixtures } from '@/data/matchbuddy-data';
 import { useTheme } from '@/hooks/use-theme';
-import { ApiConfigurationError, getFanById } from '@/lib/api';
+import { ApiConfigurationError, getFanById, sendWave } from '@/lib/api';
 import { useDiscoveryStore } from '@/stores/discovery-store';
-import type { ApiFanDetail } from '@/types/api';
+import { useSocialStore } from '@/stores/social-store';
+import type { ApiFanDetail, ApiWaveStatus } from '@/types/api';
 import type { FanProfile } from '@/types/matchbuddy';
 import { formatDistance, setupSummary } from '@/utils/formatters';
 
 export default function FanDetailScreen() {
+  const router = useRouter();
   const theme = useTheme();
   const { fanId } = useLocalSearchParams<{ fanId: string }>();
   const anchor = useDiscoveryStore((state) => state.anchor);
+  const socialRevision = useSocialStore((state) => state.revision);
+  const bumpSocialRevision = useSocialStore((state) => state.bumpRevision);
   const fallbackFan = fanId ? fansById.get(fanId) : undefined;
   const [remoteFan, setRemoteFan] = useState<ApiFanDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<null | string>(null);
+  const [actionError, setActionError] = useState<null | string>(null);
+  const [sendingWave, setSendingWave] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -71,7 +77,7 @@ export default function FanDetailScreen() {
     return () => {
       cancelled = true;
     };
-  }, [anchor.latitude, anchor.longitude, fanId, fallbackFan]);
+  }, [anchor.latitude, anchor.longitude, fanId, fallbackFan, socialRevision]);
 
   const fan: FanProfile | undefined = useMemo(() => {
     if (fallbackFan) {
@@ -107,6 +113,48 @@ export default function FanDetailScreen() {
   const fixture = fan?.matchDayModeFixtureId
     ? worldCupFixtures.find((item) => item.id === fan.matchDayModeFixtureId)
     : undefined;
+  const waveStatus = remoteFan?.waveStatus ?? 'none';
+  const directThreadId = remoteFan?.directThreadId ?? null;
+
+  async function handlePrimaryAction() {
+    if (!remoteFan) {
+      return;
+    }
+
+    if (waveStatus === 'mutual' && directThreadId) {
+      router.push({ pathname: '/chat/[threadId]', params: { threadId: directThreadId } });
+      return;
+    }
+
+    if (waveStatus === 'pending') {
+      return;
+    }
+
+    setSendingWave(true);
+    setActionError(null);
+
+    try {
+      const result = await sendWave(remoteFan.id);
+      setRemoteFan((current) =>
+        current
+          ? {
+              ...current,
+              waveStatus: result.status,
+              directThreadId: result.threadId ?? current.directThreadId,
+            }
+          : current,
+      );
+      bumpSocialRevision();
+
+      if (result.threadId && result.status === 'mutual') {
+        router.push({ pathname: '/chat/[threadId]', params: { threadId: result.threadId } });
+      }
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Could not send your wave.');
+    } finally {
+      setSendingWave(false);
+    }
+  }
 
   return (
     <>
@@ -180,6 +228,7 @@ export default function FanDetailScreen() {
                       <Pill tone={fan.hasScreen ? 'accent' : 'default'}>
                         {fan.hasScreen ? 'Host setup ready' : 'Guest mode'}
                       </Pill>
+                      {remoteFan ? <Pill tone={toneForWave(waveStatus)}>{waveCopy(waveStatus)}</Pill> : null}
                     </View>
                     <MatchText variant="title">
                       {fan.name}, {fan.age}
@@ -219,12 +268,15 @@ export default function FanDetailScreen() {
 
                 <View style={{ flexDirection: 'row', gap: Spacing.two }}>
                   <View style={{ flex: 1 }}>
-                    <ActionButton tone="accent">Wave hello</ActionButton>
+                    <ActionButton tone={toneForPrimaryAction(waveStatus)} onPress={handlePrimaryAction}>
+                      {sendingWave ? 'Sending…' : primaryActionLabel(waveStatus)}
+                    </ActionButton>
                   </View>
                   <View style={{ flex: 1 }}>
                     <ActionButton>Block or report</ActionButton>
                   </View>
                 </View>
+                {actionError ? <MatchText tone="warm">{actionError}</MatchText> : null}
               </SurfaceCard>
 
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two }}>
@@ -273,4 +325,64 @@ function toneForVibe(vibe: string) {
   }
 
   return 'default' as const;
+}
+
+function primaryActionLabel(status: ApiWaveStatus) {
+  if (status === 'mutual') {
+    return 'Open chat';
+  }
+
+  if (status === 'pending') {
+    return 'Wave sent';
+  }
+
+  if (status === 'received') {
+    return 'Wave back';
+  }
+
+  return 'Wave hello';
+}
+
+function toneForPrimaryAction(status: ApiWaveStatus) {
+  if (status === 'received') {
+    return 'warm' as const;
+  }
+
+  if (status === 'pending') {
+    return 'default' as const;
+  }
+
+  return 'accent' as const;
+}
+
+function toneForWave(status: ApiWaveStatus) {
+  if (status === 'mutual') {
+    return 'accent' as const;
+  }
+
+  if (status === 'received') {
+    return 'warm' as const;
+  }
+
+  if (status === 'pending') {
+    return 'danger' as const;
+  }
+
+  return 'default' as const;
+}
+
+function waveCopy(status: ApiWaveStatus) {
+  if (status === 'mutual') {
+    return 'Chat unlocked';
+  }
+
+  if (status === 'received') {
+    return 'Waved you first';
+  }
+
+  if (status === 'pending') {
+    return 'Wave sent';
+  }
+
+  return 'Private first tap';
 }
