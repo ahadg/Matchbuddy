@@ -2,7 +2,7 @@ import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, TextInput, View } from 'react-native';
 
-import { MatchText, SurfaceCard } from '@/components/matchbuddy/ui';
+import { Avatar, MatchText, SurfaceCard } from '@/components/matchbuddy/ui';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { ApiConfigurationError, getDirectThreadMessages, sendDirectThreadMessage } from '@/lib/api';
@@ -118,6 +118,13 @@ export default function DirectChatScreen() {
                     <MatchText variant="title">‹</MatchText>
                   </SurfaceCard>
                 </Pressable>
+                {conversation?.thread ? (
+                  <Avatar
+                    name={conversation.thread.otherDisplayName}
+                    imageUrl={conversation.thread.otherAvatarUrl}
+                    size={48}
+                  />
+                ) : null}
                 <View style={{ flex: 1, gap: 2 }}>
                   <MatchText variant="title" style={{ fontSize: 24, lineHeight: 26 }}>
                     {conversation?.thread.otherDisplayName ?? 'Chat'}
@@ -150,24 +157,33 @@ export default function DirectChatScreen() {
                       style={{
                         alignItems: own ? 'flex-end' : 'flex-start',
                       }}>
-                      <View
-                        style={{
-                          maxWidth: '84%',
-                          borderRadius: 24,
-                          paddingHorizontal: 16,
-                          paddingVertical: 12,
-                          backgroundColor: own ? 'rgba(160,255,97,0.18)' : '#171D30',
-                          borderWidth: 1,
-                          borderColor: own ? 'rgba(160,255,97,0.24)' : 'rgba(255,255,255,0.10)',
-                          gap: 6,
-                        }}>
-                        <MatchText variant="caption" tone={own ? 'accent' : 'muted'}>
-                          {own ? 'You' : message.senderDisplayName}
-                        </MatchText>
-                        <MatchText style={{ fontSize: 14, lineHeight: 20 }}>{message.body}</MatchText>
-                        <MatchText tone="muted" style={{ fontSize: 12 }}>
-                          {formatMessageTime(message.createdAt)}
-                        </MatchText>
+                      <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 10 }}>
+                        {!own ? (
+                          <Avatar
+                            name={message.senderDisplayName}
+                            imageUrl={message.senderAvatarUrl}
+                            size={38}
+                          />
+                        ) : null}
+                        <View
+                          style={{
+                            maxWidth: '84%',
+                            borderRadius: 24,
+                            paddingHorizontal: 16,
+                            paddingVertical: 12,
+                            backgroundColor: own ? 'rgba(160,255,97,0.18)' : '#171D30',
+                            borderWidth: 1,
+                            borderColor: own ? 'rgba(160,255,97,0.24)' : 'rgba(255,255,255,0.10)',
+                            gap: 6,
+                          }}>
+                          <MatchText variant="caption" tone={own ? 'accent' : 'muted'}>
+                            {own ? 'You' : message.senderDisplayName}
+                          </MatchText>
+                          <MatchText style={{ fontSize: 14, lineHeight: 20 }}>{message.body}</MatchText>
+                          <MatchText tone="muted" style={{ fontSize: 12 }}>
+                            {formatMessageTime(message.createdAt)}
+                          </MatchText>
+                        </View>
                       </View>
                     </View>
                   );

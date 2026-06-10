@@ -51,6 +51,7 @@ export type ApiProfile = {
 
 export type ApiNearbyFan = {
   id: string;
+  avatarUrl: null | string;
   displayName: string;
   neighborhood: string;
   city: string;
@@ -141,6 +142,7 @@ export type ApiJoinRequest = {
 export type ApiDirectThreadPreview = {
   id: string;
   otherProfileId: string;
+  otherAvatarUrl: null | string;
   otherDisplayName: string;
   otherInitial: string;
   otherVibe: WatchingVibe;
@@ -165,6 +167,7 @@ export type ApiGroupRoomPreview = {
   slug: string;
   vibe: WatchingVibe;
   hostId: string;
+  hostAvatarUrl: null | string;
   hostName: string;
   isHost: boolean;
   attendeeCount: number;
@@ -185,6 +188,7 @@ export type ApiChatsInbox = {
 export type ApiDirectThread = {
   id: string;
   otherProfileId: string;
+  otherAvatarUrl: null | string;
   otherDisplayName: string;
   otherInitial: string;
   otherVibe: WatchingVibe;
@@ -197,6 +201,7 @@ export type ApiDirectMessage = {
   id: string;
   threadId: string;
   senderProfileId: string;
+  senderAvatarUrl: null | string;
   senderDisplayName: string;
   senderInitial: string;
   body: string;
@@ -211,6 +216,7 @@ export type ApiDirectThreadMessages = {
 export type ApiListingRoom = {
   listingId: string;
   slug: string;
+  hostAvatarUrl: null | string;
   hostName: string;
   isHost: boolean;
   vibe: WatchingVibe;
@@ -225,6 +231,7 @@ export type ApiListingMessage = {
   id: string;
   listingId: string;
   senderProfileId: string;
+  senderAvatarUrl: null | string;
   senderDisplayName: string;
   senderInitial: string;
   body: string;

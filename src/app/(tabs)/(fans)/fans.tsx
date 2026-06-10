@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { LoadingSurface, MatchText, SurfaceCard } from '@/components/matchbuddy/ui';
+import { Avatar, LoadingSurface, MatchText, SurfaceCard } from '@/components/matchbuddy/ui';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { ApiConfigurationError, getNearbyFans, sendWave } from '@/lib/api';
@@ -15,6 +15,7 @@ import type { ApiNearbyFan, ApiWaveStatus } from '@/types/api';
 const fallbackFans = [
   {
     id: 'maya-rivera',
+    avatarUrl: null,
     displayName: 'Amir',
     neighborhood: 'Westside',
     distanceKm: 0.4,
@@ -30,6 +31,7 @@ const fallbackFans = [
   },
   {
     id: 'samir-khan',
+    avatarUrl: null,
     displayName: 'Sofia',
     neighborhood: 'Old Town',
     distanceKm: 0.9,
@@ -45,6 +47,7 @@ const fallbackFans = [
   },
   {
     id: 'jo-chen',
+    avatarUrl: null,
     displayName: 'Yara',
     neighborhood: 'Riverside',
     distanceKm: 1.2,
@@ -71,6 +74,7 @@ const discoveryNodes: Array<{ top: number; left?: number; right?: number }> = [
 
 type FanCardModel = {
   id: string;
+  avatarUrl: null | string;
   displayName: string;
   neighborhood: string;
   distanceKm: number;
@@ -182,6 +186,7 @@ export default function FansScreen() {
 
     return remoteFans.map((fan) => ({
       id: fan.id,
+      avatarUrl: fan.avatarUrl,
       displayName: fan.displayName,
       neighborhood: fan.neighborhood,
       distanceKm: fan.distanceKm,
@@ -508,26 +513,10 @@ export default function FansScreen() {
                       style={{
                         width: 82,
                         height: 82,
-                        borderRadius: 24,
-                        backgroundColor: fan.secondary,
                         alignItems: 'center',
                         justifyContent: 'center',
                       }}>
-                      <View
-                        style={{
-                          position: 'absolute',
-                          top: 0,
-                          left: 0,
-                          right: 0,
-                          bottom: 0,
-                          borderRadius: 24,
-                          backgroundColor: fan.accent,
-                          opacity: 0.72,
-                        }}
-                      />
-                      <MatchText variant="title" style={{ color: '#091019', fontSize: 32, lineHeight: 34, zIndex: 1 }}>
-                        {fan.initial}
-                      </MatchText>
+                      <Avatar name={fan.displayName} imageUrl={fan.avatarUrl} size={82} />
                       <View
                         style={{
                           position: 'absolute',

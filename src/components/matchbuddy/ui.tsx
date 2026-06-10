@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { Link } from 'expo-router';
+import { Image } from 'expo-image';
 import {
   ActivityIndicator,
   Pressable,
@@ -199,7 +200,15 @@ export function TopBar({
   );
 }
 
-export function Avatar({ name, size = 48 }: { name: string; size?: number }) {
+export function Avatar({
+  name,
+  size = 48,
+  imageUrl = null,
+}: {
+  name: string;
+  size?: number;
+  imageUrl?: null | string;
+}) {
   const theme = useTheme();
   const initials = name
     .split(' ')
@@ -225,21 +234,36 @@ export function Avatar({ name, size = 48 }: { name: string; size?: number }) {
         borderWidth: 1.5,
         borderColor: theme.border,
         backgroundColor: palette.bg,
+        overflow: 'hidden',
         alignItems: 'center',
         justifyContent: 'center',
         boxShadow: `0 14px 30px ${theme.shadow}`,
       }}>
-      <Text
-        selectable={false}
-        style={{
-          color: palette.fg,
-          fontFamily: Fonts.rounded,
-          fontSize: Math.floor(size * 0.34),
-          fontWeight: '700',
-          letterSpacing: 0.4,
-        }}>
-        {initials}
-      </Text>
+      {imageUrl ? (
+        <Image
+          source={imageUrl}
+          contentFit="cover"
+          style={{
+            position: 'absolute',
+            top: 0,
+            right: 0,
+            bottom: 0,
+            left: 0,
+          }}
+        />
+      ) : (
+        <Text
+          selectable={false}
+          style={{
+            color: palette.fg,
+            fontFamily: Fonts.rounded,
+            fontSize: Math.floor(size * 0.34),
+            fontWeight: '700',
+            letterSpacing: 0.4,
+          }}>
+          {initials}
+        </Text>
+      )}
     </View>
   );
 }
