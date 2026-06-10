@@ -250,7 +250,7 @@ export default function FansScreen() {
     <>
       <Stack.Screen options={{ title: 'Nearby' }} />
       <ScrollView
-        contentInsetAdjustmentBehavior="automatic"
+        contentInsetAdjustmentBehavior="never"
         refreshControl={
           <RefreshControl
             refreshing={refreshing}

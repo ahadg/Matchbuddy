@@ -114,7 +114,7 @@ export default function ProfileScreen() {
     <>
       <Stack.Screen options={{ title: 'Profile' }} />
       <ScrollView
-        contentInsetAdjustmentBehavior="automatic"
+        contentInsetAdjustmentBehavior="never"
         refreshControl={
           appConfig.api.enabled && session ? (
             <RefreshControl

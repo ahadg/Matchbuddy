@@ -1,11 +1,11 @@
 import { Stack, useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { MatchText, SurfaceCard } from '@/components/matchbuddy/ui';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import { BottomTabInset, Fonts, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import {
   ApiConfigurationError,
@@ -123,6 +123,8 @@ type FixtureCardModel = {
   timeLabel: string;
 } & ApiFixture;
 
+const PAGE_SIZE = 12;
+
 export default function HomeScreen() {
   const router = useRouter();
   const theme = useTheme();
@@ -137,6 +139,10 @@ export default function HomeScreen() {
   const [loadError, setLoadError] = useState<null | string>(null);
   const [modeSaving, setModeSaving] = useState(false);
   const [modeError, setModeError] = useState<null | string>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const [lastLoadedContentHeight, setLastLoadedContentHeight] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -183,61 +189,105 @@ export default function HomeScreen() {
   }, []);
 
   const schedule = fixtures.length ? fixtures : fallbackFixtures;
+  const sortedSchedule = useMemo(
+    () =>
+      [...schedule].sort(
+        (left, right) =>
+          new Date(left.kickoffAt).getTime() - new Date(right.kickoffAt).getTime(),
+      ),
+    [schedule],
+  );
 
-  const upcomingFixtures = useMemo(() => {
+  const browseFixtures = useMemo(() => {
     const now = Date.now();
-    const upcoming = schedule.filter((fixture) => {
+    const upcoming = sortedSchedule.filter((fixture) => {
       const kickoff = new Date(fixture.kickoffAt).getTime();
       return Number.isFinite(kickoff) && kickoff >= now - 1000 * 60 * 60 * 12;
     });
 
-    return (upcoming.length ? upcoming : schedule).slice(0, 3);
-  }, [schedule]);
+    return upcoming.length ? upcoming : sortedSchedule;
+  }, [sortedSchedule]);
+
+  const normalizedSearchQuery = searchQuery.trim().toLowerCase();
+  const filteredFixtures = useMemo(() => {
+    if (!normalizedSearchQuery) {
+      return browseFixtures;
+    }
+
+    return browseFixtures.filter((fixture) =>
+      [
+        fixture.homeTeam,
+        fixture.awayTeam,
+        fixture.homeCode,
+        fixture.awayCode,
+        fixture.stage,
+        fixture.venue,
+        fixture.hostCity,
+        fixture.highlight,
+      ]
+        .join(' ')
+        .toLowerCase()
+        .includes(normalizedSearchQuery),
+    );
+  }, [browseFixtures, normalizedSearchQuery]);
+
+  const visibleFixtures = useMemo(
+    () => filteredFixtures.slice(0, visibleCount),
+    [filteredFixtures, visibleCount],
+  );
+  const hasMoreFixtures = visibleFixtures.length < filteredFixtures.length;
+
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE);
+    setLastLoadedContentHeight(0);
+  }, [normalizedSearchQuery, browseFixtures.length]);
+
+  useEffect(() => {
+    setNearbyCounts({});
+  }, [anchor.latitude, anchor.longitude]);
 
   useEffect(() => {
     let cancelled = false;
 
     async function loadNearbyCounts() {
-      if (!fixtures.length) {
-        setNearbyCounts({});
+      if (!fixtures.length || !visibleFixtures.length) {
         return;
       }
 
-      const targets = upcomingFixtures.slice(0, 3);
-
-      try {
-        const results = await Promise.allSettled(
-          targets.map(async (fixture) => {
-            const nearby = await getNearbyFans({
-              latitude: anchor.latitude,
-              longitude: anchor.longitude,
-              radiusKm: 100,
-              fixtureId: fixture.id,
-              limit: 50,
-            });
-
-            return [fixture.id, nearby.length] as const;
-          }),
-        );
-
-        if (cancelled) {
-          return;
-        }
-
-        setNearbyCounts(
-          results.reduce<Record<string, number>>((counts, result) => {
-            if (result.status === 'fulfilled') {
-              counts[result.value[0]] = result.value[1];
-            }
-
-            return counts;
-          }, {}),
-        );
-      } catch {
-        if (!cancelled) {
-          setNearbyCounts({});
-        }
+      const targets = visibleFixtures.filter((fixture) => nearbyCounts[fixture.id] == null);
+      if (!targets.length) {
+        return;
       }
+
+      const results = await Promise.allSettled(
+        targets.map(async (fixture) => {
+          const nearby = await getNearbyFans({
+            latitude: anchor.latitude,
+            longitude: anchor.longitude,
+            radiusKm: 100,
+            fixtureId: fixture.id,
+            limit: 50,
+          });
+
+          return [fixture.id, nearby.length] as const;
+        }),
+      );
+
+      if (cancelled) {
+        return;
+      }
+
+      setNearbyCounts((current) => {
+        const next = { ...current };
+
+        for (const result of results) {
+          if (result.status === 'fulfilled') {
+            next[result.value[0]] = result.value[1];
+          }
+        }
+
+        return next;
+      });
     }
 
     loadNearbyCounts().catch(() => undefined);
@@ -245,38 +295,46 @@ export default function HomeScreen() {
     return () => {
       cancelled = true;
     };
-  }, [anchor.latitude, anchor.longitude, fixtures.length, upcomingFixtures]);
+  }, [anchor.latitude, anchor.longitude, fixtures.length, nearbyCounts, visibleFixtures]);
 
   const activeFixture = useMemo(() => {
     if (!profile?.matchDayModeFixtureId) {
       return null;
     }
 
-    return fixtures.find((fixture) => fixture.id === profile.matchDayModeFixtureId) ?? null;
-  }, [fixtures, profile?.matchDayModeFixtureId]);
+    return sortedSchedule.find((fixture) => fixture.id === profile.matchDayModeFixtureId) ?? null;
+  }, [profile?.matchDayModeFixtureId, sortedSchedule]);
 
-  const heroFixture = activeFixture ?? upcomingFixtures[0] ?? null;
+  const heroFixture = activeFixture ?? browseFixtures[0] ?? null;
   const matchDayEnabled = Boolean(profile?.matchDayModeFixtureId);
 
   const cards = useMemo<FixtureCardModel[]>(
     () =>
-      upcomingFixtures.map((fixture, index) => ({
-        ...fixture,
-        badge:
-          index === 0
-            ? matchDayEnabled && heroFixture?.id === fixture.id
-              ? 'Match day pick'
-              : 'Next kickoff'
-            : 'Upcoming',
-        badgeTrend: fixture.hostCity,
-        highlight: fixture.highlight,
-        hot: index === 0,
-        listingIdentifier: fixtureListings[fixture.id]?.slug ?? fixtureListings[fixture.id]?.id ?? null,
-        nearbyFans: nearbyCounts[fixture.id] ?? 0,
-        stage: fixture.stage,
-        timeLabel: formatFixtureTime(fixture.kickoffAt),
-      })),
-    [fixtureListings, heroFixture?.id, matchDayEnabled, nearbyCounts, upcomingFixtures],
+      visibleFixtures.map((fixture, index) => {
+        const isHeroFixture = heroFixture?.id === fixture.id;
+
+        return {
+          ...fixture,
+          badge:
+            isHeroFixture
+              ? matchDayEnabled
+                ? 'Match day pick'
+                : 'Next kickoff'
+              : normalizedSearchQuery
+                ? 'Search result'
+                : index < 3
+                  ? 'Upcoming'
+                  : 'Scheduled',
+          badgeTrend: fixture.hostCity,
+          highlight: fixture.highlight,
+          hot: isHeroFixture || (!normalizedSearchQuery && index === 0),
+          listingIdentifier: fixtureListings[fixture.id]?.slug ?? fixtureListings[fixture.id]?.id ?? null,
+          nearbyFans: nearbyCounts[fixture.id] ?? 0,
+          stage: fixture.stage,
+          timeLabel: formatFixtureTime(fixture.kickoffAt),
+        };
+      }),
+    [fixtureListings, heroFixture?.id, matchDayEnabled, nearbyCounts, normalizedSearchQuery, visibleFixtures],
   );
 
   async function handleMatchDayToggle() {
@@ -313,11 +371,41 @@ export default function HomeScreen() {
     router.push('/listings');
   }
 
+  function handleSearchToggle() {
+    setSearchOpen((current) => {
+      const next = !current;
+      if (!next) {
+        setSearchQuery('');
+      }
+
+      return next;
+    });
+  }
+
+  function handleLoadMore() {
+    if (!hasMoreFixtures) {
+      return;
+    }
+
+    setVisibleCount((current) => Math.min(current + PAGE_SIZE, filteredFixtures.length));
+  }
+
   return (
     <>
       <Stack.Screen options={{ title: 'Fixtures' }} />
       <ScrollView
-        contentInsetAdjustmentBehavior="automatic"
+        contentInsetAdjustmentBehavior="never"
+        keyboardShouldPersistTaps="handled"
+        onScroll={({ nativeEvent }) => {
+          const { contentOffset, contentSize, layoutMeasurement } = nativeEvent;
+          const nearBottom = layoutMeasurement.height + contentOffset.y >= contentSize.height - 280;
+
+          if (nearBottom && contentSize.height !== lastLoadedContentHeight) {
+            setLastLoadedContentHeight(contentSize.height);
+            handleLoadMore();
+          }
+        }}
+        scrollEventThrottle={16}
         style={{ flex: 1, backgroundColor: theme.background }}
         contentContainerStyle={{
           paddingHorizontal: Spacing.three,
@@ -364,10 +452,74 @@ export default function HomeScreen() {
               </MatchText>
             </View>
             <View style={{ flexDirection: 'row', gap: 12 }}>
-              <CircleAction symbolName={{ ios: 'magnifyingglass', android: 'search', web: 'search' }} />
-              <CircleAction symbolName={{ ios: 'bell.fill', android: 'notifications', web: 'notifications' }} accentDot />
+              <CircleAction
+                onPress={handleSearchToggle}
+                symbolName={
+                  searchOpen
+                    ? { ios: 'xmark', android: 'close', web: 'close' }
+                    : { ios: 'magnifyingglass', android: 'search', web: 'search' }
+                }
+              />
+              <CircleAction
+                accentDot
+                onPress={() => {
+                  router.push('/listings');
+                }}
+                symbolName={{ ios: 'bell.fill', android: 'notifications', web: 'notifications' }}
+              />
             </View>
           </View>
+
+          {searchOpen ? (
+            <SurfaceCard
+              style={{
+                borderRadius: 24,
+                paddingHorizontal: 14,
+                paddingVertical: 12,
+                backgroundColor: '#141A2B',
+              }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                <MatchSymbol
+                  name={{ ios: 'magnifyingglass', android: 'search', web: 'search' }}
+                  color="rgba(235,238,244,0.68)"
+                  size={18}
+                />
+                <TextInput
+                  autoFocus
+                  onChangeText={setSearchQuery}
+                  placeholder="Search fixtures, teams, city, or stage"
+                  placeholderTextColor="rgba(235,238,244,0.45)"
+                  returnKeyType="search"
+                  selectionColor={theme.accent}
+                  style={{
+                    flex: 1,
+                    color: theme.text,
+                    fontFamily: Fonts.sans,
+                    fontSize: 14,
+                    fontWeight: '600',
+                    paddingVertical: 2,
+                  }}
+                  value={searchQuery}
+                />
+                {searchQuery ? (
+                  <Pressable
+                    hitSlop={10}
+                    onPress={() => {
+                      setSearchQuery('');
+                    }}
+                    style={({ pressed }) => ({
+                      opacity: pressed ? 0.72 : 1,
+                    })}>
+                    <MatchSymbol
+                      name={{ ios: 'xmark.circle.fill', android: 'cancel', web: 'cancel' }}
+                      color="rgba(235,238,244,0.56)"
+                      size={18}
+                    />
+                  </Pressable>
+                ) : null}
+              </View>
+            </SurfaceCard>
+          ) : null}
 
           <View
             style={{
@@ -517,7 +669,9 @@ export default function HomeScreen() {
                 World Cup 2026
               </MatchText>
               <MatchText tone="muted" style={{ fontSize: 13 }}>
-                Live from your database schedule
+                {normalizedSearchQuery
+                  ? `Showing ${filteredFixtures.length} fixture${filteredFixtures.length === 1 ? '' : 's'} for "${searchQuery.trim()}"`
+                  : 'Browse the full schedule and keep scrolling for more'}
               </MatchText>
             </View>
             <View
@@ -530,7 +684,11 @@ export default function HomeScreen() {
                 borderColor: 'rgba(160,255,97,0.18)',
               }}>
               <MatchText variant="caption" tone="accent" style={{ fontSize: 12 }}>
-                {fixtures.length ? `${fixtures.length} scheduled` : 'Preview'}
+                {filteredFixtures.length
+                  ? `${Math.min(visibleFixtures.length, filteredFixtures.length)} / ${filteredFixtures.length}`
+                  : fixtures.length
+                    ? '0 found'
+                    : 'Preview'}
               </MatchText>
             </View>
           </View>
@@ -547,6 +705,17 @@ export default function HomeScreen() {
           {loadError ? (
             <SurfaceCard tone="warm" style={{ borderRadius: 24 }}>
               <MatchText tone="warm">{loadError}</MatchText>
+            </SurfaceCard>
+          ) : null}
+
+          {!loading && !filteredFixtures.length ? (
+            <SurfaceCard style={{ borderRadius: 24, padding: 20 }}>
+              <View style={{ gap: 6 }}>
+                <MatchText variant="subtitle">No fixtures matched your search.</MatchText>
+                <MatchText tone="muted">
+                  Try a team name, city, stadium, or tournament stage.
+                </MatchText>
+              </View>
             </SurfaceCard>
           ) : null}
 
@@ -732,6 +901,18 @@ export default function HomeScreen() {
                 </SurfaceCard>
               </Pressable>
             ))}
+
+            {filteredFixtures.length ? (
+              <View style={{ alignItems: 'center', paddingBottom: 4 }}>
+                <MatchText tone="muted" style={{ textAlign: 'center' }}>
+                  {hasMoreFixtures
+                    ? `Scroll for more fixtures · ${visibleFixtures.length} of ${filteredFixtures.length} loaded`
+                    : normalizedSearchQuery
+                      ? `Showing all ${filteredFixtures.length} search result${filteredFixtures.length === 1 ? '' : 's'}`
+                      : `All ${filteredFixtures.length} fixtures loaded`}
+                </MatchText>
+              </View>
+            ) : null}
           </View>
         </View>
       </ScrollView>
@@ -815,19 +996,31 @@ function MetaPill({ label, accent = false }: { label: string; accent?: boolean }
   );
 }
 
-function CircleAction({ symbolName, accentDot = false }: { symbolName: any; accentDot?: boolean }) {
+function CircleAction({
+  symbolName,
+  accentDot = false,
+  onPress,
+}: {
+  symbolName: any;
+  accentDot?: boolean;
+  onPress?: () => void;
+}) {
   return (
-    <View
-      style={{
+    <Pressable
+      disabled={!onPress}
+      hitSlop={6}
+      onPress={onPress}
+      style={({ pressed }) => ({
         width: 64,
         height: 64,
         borderRadius: 22,
         borderWidth: 1,
         borderColor: 'rgba(255,255,255,0.10)',
-        backgroundColor: 'rgba(255,255,255,0.05)',
+        backgroundColor: pressed ? 'rgba(255,255,255,0.09)' : 'rgba(255,255,255,0.05)',
         alignItems: 'center',
         justifyContent: 'center',
-      }}>
+        opacity: pressed ? 0.92 : 1,
+      })}>
       <MatchSymbol name={symbolName} size={23} />
       {accentDot ? (
         <View
@@ -842,7 +1035,7 @@ function CircleAction({ symbolName, accentDot = false }: { symbolName: any; acce
           }}
         />
       ) : null}
-    </View>
+    </Pressable>
   );
 }
 

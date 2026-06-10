@@ -106,7 +106,7 @@ export default function ChatsScreen() {
     <>
       <Stack.Screen options={{ title: 'Chats' }} />
       <ScrollView
-        contentInsetAdjustmentBehavior="automatic"
+        contentInsetAdjustmentBehavior="never"
         refreshControl={
           <RefreshControl
             refreshing={refreshing}

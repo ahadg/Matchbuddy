@@ -39,7 +39,7 @@ export default function VerifyOtpScreen() {
     <>
       <Stack.Screen options={{ title: 'Verify code' }} />
       <ScrollView
-        contentInsetAdjustmentBehavior="automatic"
+        contentInsetAdjustmentBehavior="never"
         style={{ flex: 1, backgroundColor: theme.background }}
         contentContainerStyle={{ padding: Spacing.three, paddingTop: insets.top + Spacing.three }}>
         <View style={{ width: '100%', maxWidth: MaxContentWidth, alignSelf: 'center', gap: 18 }}>
