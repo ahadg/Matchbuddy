@@ -1,6 +1,14 @@
 import type { ReactNode } from 'react';
 import { Link } from 'expo-router';
-import { Pressable, Text, type TextProps, useWindowDimensions, View, type ViewProps } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  Text,
+  type TextProps,
+  useWindowDimensions,
+  View,
+  type ViewProps,
+} from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { Fonts, Radii, Spacing } from '@/constants/theme';
@@ -36,6 +44,12 @@ type MetricProps = {
 type SectionRowProps = {
   title: string;
   action?: string;
+};
+
+type LoadingSurfaceProps = {
+  compact?: boolean;
+  subtitle?: string;
+  title: string;
 };
 
 const vibeTone: Record<WatchingVibe, Tone> = {
@@ -297,6 +311,49 @@ export function SurfaceCard({
       />
       {children}
     </Animated.View>
+  );
+}
+
+export function LoadingSurface({
+  compact = false,
+  subtitle,
+  title,
+}: LoadingSurfaceProps) {
+  const theme = useTheme();
+
+  return (
+    <SurfaceCard
+      style={{
+        padding: compact ? 14 : 18,
+        borderRadius: compact ? 22 : 26,
+        gap: compact ? 10 : 12,
+      }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+        <View
+          style={{
+            width: compact ? 42 : 52,
+            height: compact ? 42 : 52,
+            borderRadius: 999,
+            backgroundColor: theme.accentSoft,
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderWidth: 1,
+            borderColor: theme.border,
+          }}>
+          <ActivityIndicator color={theme.accent} />
+        </View>
+        <View style={{ flex: 1, gap: 4 }}>
+          <MatchText variant="subtitle" style={{ fontSize: compact ? 15 : 17, lineHeight: compact ? 18 : 21 }}>
+            {title}
+          </MatchText>
+          {subtitle ? (
+            <MatchText tone="muted" style={{ fontSize: compact ? 13 : 14, lineHeight: compact ? 18 : 20 }}>
+              {subtitle}
+            </MatchText>
+          ) : null}
+        </View>
+      </View>
+    </SurfaceCard>
   );
 }
 

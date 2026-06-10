@@ -1,9 +1,9 @@
 import { Stack, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, TextInput, View } from 'react-native';
+import { Pressable, RefreshControl, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { MatchText, SurfaceCard } from '@/components/matchbuddy/ui';
+import { LoadingSurface, MatchText, SurfaceCard } from '@/components/matchbuddy/ui';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { ApiConfigurationError, getNearbyFans, sendWave } from '@/lib/api';
@@ -100,8 +100,35 @@ export default function FansScreen() {
   const bumpSocialRevision = useSocialStore((state) => state.bumpRevision);
   const [remoteFans, setRemoteFans] = useState<ApiNearbyFan[] | null>(null);
   const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [apiError, setApiError] = useState<null | string>(null);
   const [activeWaveFanId, setActiveWaveFanId] = useState<null | string>(null);
+
+  async function refreshNearbyFans() {
+    if (loading || refreshing) {
+      return;
+    }
+
+    setRefreshing(true);
+    setApiError(null);
+
+    try {
+      const fans = await getNearbyFans({
+        latitude: anchor.latitude,
+        longitude: anchor.longitude,
+        radiusKm,
+        limit: 20,
+      });
+
+      setRemoteFans(fans);
+    } catch (error) {
+      if (!(error instanceof ApiConfigurationError)) {
+        setApiError(error instanceof Error ? error.message : 'Could not refresh nearby fans.');
+      }
+    } finally {
+      setRefreshing(false);
+    }
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -144,6 +171,10 @@ export default function FansScreen() {
   }, [anchor.latitude, anchor.longitude, radiusKm, socialRevision]);
 
   const cards: FanCardModel[] = useMemo(() => {
+    if ((loading || refreshing) && remoteFans === null) {
+      return [];
+    }
+
     if (remoteFans === null) {
       return fallbackFans;
     }
@@ -163,7 +194,10 @@ export default function FansScreen() {
       directThreadId: fan.directThreadId,
       isRemote: true,
     }));
-  }, [remoteFans]);
+  }, [loading, refreshing, remoteFans]);
+
+  const isInitialLoad = (loading || refreshing) && remoteFans === null;
+  const isRefreshing = (loading || refreshing) && remoteFans !== null;
 
   async function handleWave(card: FanCardModel) {
     if (!card.isRemote) {
@@ -198,6 +232,17 @@ export default function FansScreen() {
       <Stack.Screen options={{ title: 'Nearby' }} />
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => {
+              refreshNearbyFans().catch(() => undefined);
+            }}
+            tintColor={theme.accent}
+            colors={[theme.accent]}
+            progressBackgroundColor="#171D30"
+          />
+        }
         style={{ flex: 1, backgroundColor: theme.background }}
         contentContainerStyle={{
           paddingHorizontal: Spacing.three,
@@ -205,6 +250,41 @@ export default function FansScreen() {
           paddingBottom: BottomTabInset + 24,
         }}>
         <View style={{ width: '100%', maxWidth: MaxContentWidth, alignSelf: 'center', gap: 16 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: Spacing.three }}>
+            <View style={{ gap: 4 }}>
+              <MatchText variant="label" tone="muted">
+                Discovery
+              </MatchText>
+              <MatchText variant="hero" style={{ fontSize: 34, lineHeight: 36 }}>
+                Nearby
+              </MatchText>
+            </View>
+            <View
+              style={{
+                width: 64,
+                height: 64,
+                borderRadius: 999,
+                backgroundColor: theme.accent,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}>
+              <Pressable
+                onPress={() => {
+                  refreshNearbyFans().catch(() => undefined);
+                }}
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}>
+                <MatchText variant="hero" style={{ color: '#0A0F17', fontSize: refreshing ? 14 : 20, lineHeight: refreshing ? 16 : 22 }}>
+                  {refreshing ? '...' : '↻'}
+                </MatchText>
+              </Pressable>
+            </View>
+          </View>
+
           <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
             {presetRadii.map((preset) => (
               <Pressable
@@ -274,6 +354,21 @@ export default function FansScreen() {
                 Searching within {radiusKm} km of {profileLocation.latitude.toFixed(4)}, {profileLocation.longitude.toFixed(4)}
               </MatchText>
             </SurfaceCard>
+          ) : null}
+
+          {isInitialLoad ? (
+            <LoadingSurface
+              title={`Scanning within ${radiusKm} km`}
+              subtitle="Finding live fans around your saved location."
+            />
+          ) : null}
+
+          {isRefreshing ? (
+            <LoadingSurface
+              compact
+              title="Refreshing nearby fans"
+              subtitle="Pulling the latest people in your selected radius."
+            />
           ) : null}
 
           <SurfaceCard
@@ -368,7 +463,7 @@ export default function FansScreen() {
             </SurfaceCard>
           ) : null}
 
-          {cards.length ? (
+          {!isInitialLoad && cards.length ? (
             cards.map((fan) => (
               <Pressable
                 key={fan.id}
@@ -471,7 +566,7 @@ export default function FansScreen() {
                 </SurfaceCard>
               </Pressable>
             ))
-          ) : (
+          ) : !isInitialLoad ? (
             <SurfaceCard
               style={{
                 padding: 18,
@@ -486,7 +581,7 @@ export default function FansScreen() {
                 Try a bigger km range or update your saved latitude and longitude in your profile.
               </MatchText>
             </SurfaceCard>
-          )}
+          ) : null}
         </View>
       </ScrollView>
     </>

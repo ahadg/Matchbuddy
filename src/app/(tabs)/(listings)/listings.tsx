@@ -1,9 +1,9 @@
 import { Stack, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, View } from 'react-native';
+import { Pressable, RefreshControl, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { MatchText, SurfaceCard } from '@/components/matchbuddy/ui';
+import { LoadingSurface, MatchText, SurfaceCard } from '@/components/matchbuddy/ui';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { ApiConfigurationError, getChatsInbox, sendWave } from '@/lib/api';
@@ -18,8 +18,29 @@ export default function ChatsScreen() {
   const bumpSocialRevision = useSocialStore((state) => state.bumpRevision);
   const [inbox, setInbox] = useState<ApiChatsInbox | null>(null);
   const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [loadError, setLoadError] = useState<null | string>(null);
   const [activeWaveId, setActiveWaveId] = useState<null | string>(null);
+
+  async function refreshInbox() {
+    if (loading || refreshing) {
+      return;
+    }
+
+    setRefreshing(true);
+    setLoadError(null);
+
+    try {
+      const nextInbox = await getChatsInbox();
+      setInbox(nextInbox);
+    } catch (error) {
+      if (!(error instanceof ApiConfigurationError)) {
+        setLoadError(error instanceof Error ? error.message : 'Could not refresh your inbox.');
+      }
+    } finally {
+      setRefreshing(false);
+    }
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -59,6 +80,9 @@ export default function ChatsScreen() {
   const additionalThreads = useMemo(() => inbox?.directThreads.slice(1) ?? [], [inbox?.directThreads]);
   const incomingWaves = inbox?.incomingWaves ?? [];
   const groupRooms = inbox?.groupRooms ?? [];
+  const hasLoadedInbox = Boolean(inbox);
+  const isInitialLoad = (loading || refreshing) && !hasLoadedInbox;
+  const isRefreshing = (loading || refreshing) && hasLoadedInbox;
 
   async function handleIncomingWave(wave: ApiIncomingWave) {
     setActiveWaveId(wave.id);
@@ -83,6 +107,17 @@ export default function ChatsScreen() {
       <Stack.Screen options={{ title: 'Chats' }} />
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => {
+              refreshInbox().catch(() => undefined);
+            }}
+            tintColor={theme.accent}
+            colors={[theme.accent]}
+            progressBackgroundColor="#171D30"
+          />
+        }
         style={{ flex: 1, backgroundColor: theme.background }}
         contentContainerStyle={{
           paddingHorizontal: Spacing.three,
@@ -113,15 +148,31 @@ export default function ChatsScreen() {
                 alignItems: 'center',
                 justifyContent: 'center',
               }}>
-              <MatchText variant="hero" style={{ color: '#0A0F17', fontSize: 28, lineHeight: 28 }}>
-                +
-              </MatchText>
+              <Pressable
+                onPress={() => {
+                  refreshInbox().catch(() => undefined);
+                }}
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}>
+                <MatchText variant="hero" style={{ color: '#0A0F17', fontSize: refreshing ? 14 : 20, lineHeight: refreshing ? 16 : 22 }}>
+                  {refreshing ? '...' : '↻'}
+                </MatchText>
+              </Pressable>
             </View>
           </View>
 
-          {featuredThread ? (
+          {isInitialLoad ? (
+            <LoadingSurface
+              title="Loading your inbox"
+              subtitle="Fetching waves, unlocked chats, and group rooms."
+            />
+          ) : hasLoadedInbox && featuredThread ? (
             <FeaturedThreadCard thread={featuredThread} onOpen={() => router.push({ pathname: '/chat/[threadId]', params: { threadId: featuredThread.id } })} />
-          ) : (
+          ) : hasLoadedInbox ? (
             <SurfaceCard
               style={{
                 padding: 18,
@@ -136,12 +187,14 @@ export default function ChatsScreen() {
                 Start in Nearby, send a wave, and chats will unlock here after it is mutual.
               </MatchText>
             </SurfaceCard>
-          )}
+          ) : null}
 
-          {loading ? (
-            <SurfaceCard style={{ borderRadius: 24 }}>
-              <MatchText tone="muted">Loading your inbox…</MatchText>
-            </SurfaceCard>
+          {isRefreshing ? (
+            <LoadingSurface
+              compact
+              title="Refreshing chats"
+              subtitle="Checking for new waves and replies."
+            />
           ) : null}
 
           {loadError ? (
@@ -150,8 +203,8 @@ export default function ChatsScreen() {
             </SurfaceCard>
           ) : null}
 
-          {additionalThreads.length > 0 ? <SectionLabel label="Open chats" /> : null}
-          {additionalThreads.length > 0 ? (
+          {hasLoadedInbox && additionalThreads.length > 0 ? <SectionLabel label="Open chats" /> : null}
+          {hasLoadedInbox && additionalThreads.length > 0 ? (
             <View style={{ gap: 16 }}>
               {additionalThreads.map((thread) => (
                 <Pressable
@@ -188,91 +241,13 @@ export default function ChatsScreen() {
             </View>
           ) : null}
 
-          <SectionLabel label="Anonymous waves" />
-          <View style={{ gap: 16 }}>
-            {incomingWaves.length ? (
-              incomingWaves.map((wave) => (
-                <SurfaceCard
-                  key={wave.id}
-                  style={{
-                    padding: 16,
-                    borderRadius: 24,
-                    backgroundColor: '#171D30',
-                    borderColor: 'rgba(255,255,255,0.10)',
-                  }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-                    <View
-                      style={{
-                        width: 74,
-                        height: 74,
-                        borderRadius: 22,
-                        backgroundColor: 'rgba(255, 92, 120, 0.18)',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                      }}>
-                      <MatchText variant="title" style={{ color: '#FF647D', fontSize: 24, lineHeight: 26 }}>
-                        ☞
-                      </MatchText>
-                    </View>
-
-                    <View style={{ flex: 1, gap: 5 }}>
-                      <MatchText variant="title" style={{ fontSize: 21, lineHeight: 23 }}>
-                        Someone in {wave.fromNeighborhood}
-                      </MatchText>
-                      <MatchText tone="muted" style={{ fontSize: 14 }}>
-                        Waved you for {wave.fixtureSummary ?? 'tonight'}
-                      </MatchText>
-                    </View>
-
-                    <View style={{ alignItems: 'flex-end', gap: 12 }}>
-                      <MatchText tone="muted" style={{ fontSize: 13 }}>
-                        {formatRelativeTime(wave.createdAt)}
-                      </MatchText>
-                      <Pressable
-                        onPress={() => {
-                          handleIncomingWave(wave).catch(() => undefined);
-                        }}
-                        style={{
-                          width: 50,
-                          height: 50,
-                          borderRadius: 999,
-                          backgroundColor: '#FFAA4A',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                        }}>
-                        <MatchText variant="title" style={{ color: '#141924', fontSize: 14, lineHeight: 16 }}>
-                          {activeWaveId === wave.id ? '...' : 'Back'}
-                        </MatchText>
-                      </Pressable>
-                    </View>
-                  </View>
-                </SurfaceCard>
-              ))
-            ) : (
-              <SurfaceCard
-                style={{
-                  padding: 16,
-                  borderRadius: 24,
-                  backgroundColor: '#171D30',
-                  borderColor: 'rgba(255,255,255,0.10)',
-                }}>
-                <MatchText tone="muted">No pending waves right now.</MatchText>
-              </SurfaceCard>
-            )}
-          </View>
-
-          <SectionLabel label="Group rooms" />
-          <View style={{ gap: 16 }}>
-            {groupRooms.length ? (
-              groupRooms.map((group) => (
-                <Pressable
-                  key={group.listingId}
-                  onPress={() => router.push({ pathname: '/room/[listingId]', params: { listingId: group.listingId } })}
-                  style={({ pressed }) => ({
-                    opacity: pressed ? 0.96 : 1,
-                    transform: [{ scale: pressed ? 0.995 : 1 }],
-                  })}>
+          {hasLoadedInbox ? <SectionLabel label="Anonymous waves" /> : null}
+          {hasLoadedInbox ? (
+            <View style={{ gap: 16 }}>
+              {incomingWaves.length ? (
+                incomingWaves.map((wave) => (
                   <SurfaceCard
+                    key={wave.id}
                     style={{
                       padding: 16,
                       borderRadius: 24,
@@ -285,53 +260,135 @@ export default function ChatsScreen() {
                           width: 74,
                           height: 74,
                           borderRadius: 22,
-                          backgroundColor: 'rgba(160,255,97,0.18)',
+                          backgroundColor: 'rgba(255, 92, 120, 0.18)',
                           alignItems: 'center',
                           justifyContent: 'center',
                         }}>
-                        <MatchText variant="title" style={{ fontSize: 24, lineHeight: 26 }}>
-                          {group.isHost ? '♕' : '💬'}
+                        <MatchText variant="title" style={{ color: '#FF647D', fontSize: 24, lineHeight: 26 }}>
+                          ☞
                         </MatchText>
                       </View>
+
                       <View style={{ flex: 1, gap: 5 }}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                          <MatchText variant="title" style={{ fontSize: 20, lineHeight: 22, flex: 1 }} numberOfLines={1}>
-                            {group.hostName}&apos;s room
-                          </MatchText>
-                          <View
-                            style={{
-                              minWidth: 30,
-                              paddingHorizontal: 8,
-                              paddingVertical: 5,
-                              borderRadius: 999,
-                              backgroundColor: 'rgba(160,255,97,0.16)',
-                            }}>
-                            <MatchText style={{ color: theme.accent, fontWeight: '800', textAlign: 'center' }}>{group.attendeeCount}</MatchText>
-                          </View>
-                        </View>
-                        <MatchText tone="muted" numberOfLines={1} style={{ fontSize: 14 }}>
-                          {group.lastMessage ?? `${group.fixtureSummary ?? 'Watch party'} room ready`}
+                        <MatchText variant="title" style={{ fontSize: 21, lineHeight: 23 }}>
+                          Someone in {wave.fromNeighborhood}
+                        </MatchText>
+                        <MatchText tone="muted" style={{ fontSize: 14 }}>
+                          Waved you for {wave.fixtureSummary ?? 'tonight'}
                         </MatchText>
                       </View>
-                      <MatchText tone="muted" style={{ fontSize: 13 }}>
-                        {group.lastMessageAt ? formatRelativeTime(group.lastMessageAt) : 'new'}
-                      </MatchText>
+
+                      <View style={{ alignItems: 'flex-end', gap: 12 }}>
+                        <MatchText tone="muted" style={{ fontSize: 13 }}>
+                          {formatRelativeTime(wave.createdAt)}
+                        </MatchText>
+                        <Pressable
+                          onPress={() => {
+                            handleIncomingWave(wave).catch(() => undefined);
+                          }}
+                          style={{
+                            width: 50,
+                            height: 50,
+                            borderRadius: 999,
+                            backgroundColor: '#FFAA4A',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          }}>
+                          <MatchText variant="title" style={{ color: '#141924', fontSize: 14, lineHeight: 16 }}>
+                            {activeWaveId === wave.id ? '...' : 'Back'}
+                          </MatchText>
+                        </Pressable>
+                      </View>
                     </View>
                   </SurfaceCard>
-                </Pressable>
-              ))
-            ) : (
-              <SurfaceCard
-                style={{
-                  padding: 16,
-                  borderRadius: 24,
-                  backgroundColor: '#171D30',
-                  borderColor: 'rgba(255,255,255,0.10)',
-                }}>
-                <MatchText tone="muted">Approved rooms will show up here after a host lets you in.</MatchText>
-              </SurfaceCard>
-            )}
-          </View>
+                ))
+              ) : (
+                <SurfaceCard
+                  style={{
+                    padding: 16,
+                    borderRadius: 24,
+                    backgroundColor: '#171D30',
+                    borderColor: 'rgba(255,255,255,0.10)',
+                  }}>
+                  <MatchText tone="muted">No pending waves right now.</MatchText>
+                </SurfaceCard>
+              )}
+            </View>
+          ) : null}
+
+          {hasLoadedInbox ? <SectionLabel label="Group rooms" /> : null}
+          {hasLoadedInbox ? (
+            <View style={{ gap: 16 }}>
+              {groupRooms.length ? (
+                groupRooms.map((group) => (
+                  <Pressable
+                    key={group.listingId}
+                    onPress={() => router.push({ pathname: '/room/[listingId]', params: { listingId: group.listingId } })}
+                    style={({ pressed }) => ({
+                      opacity: pressed ? 0.96 : 1,
+                      transform: [{ scale: pressed ? 0.995 : 1 }],
+                    })}>
+                    <SurfaceCard
+                      style={{
+                        padding: 16,
+                        borderRadius: 24,
+                        backgroundColor: '#171D30',
+                        borderColor: 'rgba(255,255,255,0.10)',
+                      }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+                        <View
+                          style={{
+                            width: 74,
+                            height: 74,
+                            borderRadius: 22,
+                            backgroundColor: 'rgba(160,255,97,0.18)',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          }}>
+                          <MatchText variant="title" style={{ fontSize: 24, lineHeight: 26 }}>
+                            {group.isHost ? '♕' : '💬'}
+                          </MatchText>
+                        </View>
+                        <View style={{ flex: 1, gap: 5 }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                            <MatchText variant="title" style={{ fontSize: 20, lineHeight: 22, flex: 1 }} numberOfLines={1}>
+                              {group.hostName}&apos;s room
+                            </MatchText>
+                            <View
+                              style={{
+                                minWidth: 30,
+                                paddingHorizontal: 8,
+                                paddingVertical: 5,
+                                borderRadius: 999,
+                                backgroundColor: 'rgba(160,255,97,0.16)',
+                              }}>
+                              <MatchText style={{ color: theme.accent, fontWeight: '800', textAlign: 'center' }}>{group.attendeeCount}</MatchText>
+                            </View>
+                          </View>
+                          <MatchText tone="muted" numberOfLines={1} style={{ fontSize: 14 }}>
+                            {group.lastMessage ?? `${group.fixtureSummary ?? 'Watch party'} room ready`}
+                          </MatchText>
+                        </View>
+                        <MatchText tone="muted" style={{ fontSize: 13 }}>
+                          {group.lastMessageAt ? formatRelativeTime(group.lastMessageAt) : 'new'}
+                        </MatchText>
+                      </View>
+                    </SurfaceCard>
+                  </Pressable>
+                ))
+              ) : (
+                <SurfaceCard
+                  style={{
+                    padding: 16,
+                    borderRadius: 24,
+                    backgroundColor: '#171D30',
+                    borderColor: 'rgba(255,255,255,0.10)',
+                  }}>
+                  <MatchText tone="muted">Approved rooms will show up here after a host lets you in.</MatchText>
+                </SurfaceCard>
+              )}
+            </View>
+          ) : null}
         </View>
       </ScrollView>
     </>
