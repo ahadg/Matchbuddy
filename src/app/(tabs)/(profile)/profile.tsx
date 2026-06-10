@@ -1,6 +1,9 @@
-import { useCallback } from 'react';
+import * as ImagePicker from 'expo-image-picker';
+import { Image } from 'expo-image';
 import { Stack, useFocusEffect, useRouter } from 'expo-router';
-import { Pressable, RefreshControl, ScrollView, View } from 'react-native';
+import { SymbolView } from 'expo-symbols';
+import { useCallback, useState } from 'react';
+import { ActivityIndicator, Pressable, RefreshControl, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { MatchText, SurfaceCard } from '@/components/matchbuddy/ui';
@@ -19,8 +22,12 @@ export default function ProfileScreen() {
   const signOut = useAuthStore((state) => state.signOut);
   const profile = useProfileStore((state) => state.profile);
   const loading = useProfileStore((state) => state.loading);
+  const avatarUploading = useProfileStore((state) => state.avatarUploading);
   const refresh = useProfileStore((state) => state.refresh);
+  const uploadAvatar = useProfileStore((state) => state.uploadAvatar);
   const isAdmin = session?.user?.email?.trim().toLowerCase() === MATCHBUDDY_ADMIN_EMAIL;
+  const [photoMessage, setPhotoMessage] = useState<null | string>(null);
+  const [photoMessageTone, setPhotoMessageTone] = useState<'accent' | 'danger'>('accent');
 
   const displayName = profile?.displayName ?? 'MatchBuddy fan';
   const initial = displayName[0]?.toUpperCase() ?? 'M';
@@ -49,6 +56,59 @@ export default function ProfileScreen() {
       return undefined;
     }, [refresh, session?.user?.id]),
   );
+
+  const handlePickProfilePhoto = useCallback(async () => {
+    setPhotoMessage(null);
+
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+      if (!permission.granted) {
+        setPhotoMessageTone('danger');
+        setPhotoMessage('Photo library access is needed before you can change your profile photo.');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        allowsEditing: true,
+        aspect: [1, 1],
+        base64: true,
+        mediaTypes: ['images'],
+        quality: 0.72,
+      });
+
+      if (result.canceled) {
+        return;
+      }
+
+      const asset = result.assets[0];
+
+      if (!asset?.base64) {
+        setPhotoMessageTone('danger');
+        setPhotoMessage('We could not read that image. Please try another photo.');
+        return;
+      }
+
+      if (typeof asset.fileSize === 'number' && asset.fileSize > 5_000_000) {
+        setPhotoMessageTone('danger');
+        setPhotoMessage('Choose a photo under 5 MB so it uploads quickly.');
+        return;
+      }
+
+      const uploadResult = await uploadAvatar({
+        base64: asset.base64,
+        contentType: asset.mimeType ?? 'image/jpeg',
+      });
+
+      setPhotoMessageTone(uploadResult.error ? 'danger' : 'accent');
+      setPhotoMessage(uploadResult.error ? uploadResult.error : 'Profile photo updated.');
+    } catch (error) {
+      setPhotoMessageTone('danger');
+      setPhotoMessage(
+        error instanceof Error ? error.message : 'We could not update your profile photo right now.',
+      );
+    }
+  }, [uploadAvatar]);
 
   return (
     <>
@@ -90,16 +150,67 @@ export default function ProfileScreen() {
                   width: 108,
                   height: 108,
                   borderRadius: 32,
+                  overflow: 'hidden',
                   backgroundColor: '#66D8FF',
                   borderWidth: 6,
                   borderColor: theme.background,
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}>
-                <View style={{ position: 'absolute', inset: 0, borderRadius: 26, backgroundColor: theme.accent, opacity: 0.62 }} />
-                <MatchText variant="hero" style={{ color: '#091019', fontSize: 48, lineHeight: 50, zIndex: 1 }}>
-                  {initial}
-                </MatchText>
+                {profile?.avatarUrl ? (
+                  <Image
+                    source={profile.avatarUrl}
+                    contentFit="cover"
+                    style={{ position: 'absolute', inset: 0 }}
+                  />
+                ) : (
+                  <>
+                    <View
+                      style={{
+                        position: 'absolute',
+                        inset: 0,
+                        borderRadius: 26,
+                        backgroundColor: theme.accent,
+                        opacity: 0.62,
+                      }}
+                    />
+                    <MatchText
+                      variant="hero"
+                      style={{ color: '#091019', fontSize: 48, lineHeight: 50, zIndex: 1 }}>
+                      {initial}
+                    </MatchText>
+                  </>
+                )}
+                <Pressable
+                  onPress={() => {
+                    handlePickProfilePhoto().catch(() => undefined);
+                  }}
+                  disabled={avatarUploading}
+                  style={({ pressed }) => ({
+                    position: 'absolute',
+                    right: 6,
+                    top: 6,
+                    width: 36,
+                    height: 36,
+                    borderRadius: 999,
+                    backgroundColor: 'rgba(11,18,28,0.76)',
+                    borderWidth: 1,
+                    borderColor: 'rgba(255,255,255,0.12)',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    opacity: pressed || avatarUploading ? 0.82 : 1,
+                  })}>
+                  {avatarUploading ? (
+                    <ActivityIndicator color={theme.accent} size="small" />
+                  ) : (
+                    <SymbolView
+                      name={{ ios: 'camera.fill', android: 'photo_camera', web: 'photo_camera' }}
+                      size={16}
+                      tintColor={theme.text}
+                      type="monochrome"
+                    />
+                  )}
+                </Pressable>
                 {profile?.verified ? (
                   <View
                     style={{
@@ -175,6 +286,14 @@ export default function ProfileScreen() {
                 ) : null}
               </View>
             </View>
+
+            {photoMessage ? (
+              <MatchText
+                tone={photoMessageTone}
+                style={{ fontSize: 13, lineHeight: 18 }}>
+                {photoMessage}
+              </MatchText>
+            ) : null}
 
             <View style={{ gap: 8 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>

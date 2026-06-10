@@ -26,6 +26,12 @@
     "plugins": [
       "expo-router",
       [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow MatchBuddy to access your photos so you can add a profile picture."
+        }
+      ],
+      [
         "expo-location",
         {
           "locationWhenInUsePermission": "Allow MatchBuddy to use your location so we can find nearby fans and watch parties around you."

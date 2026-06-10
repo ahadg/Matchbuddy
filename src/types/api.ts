@@ -25,6 +25,7 @@ export type ApiProfile = {
   id: string;
   authUserId: null | string;
   email: null | string;
+  avatarUrl: null | string;
   displayName: string;
   age: number;
   bio: string;

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-import { ApiRequestError, getMyProfile, upsertMyProfile } from '@/lib/api';
+import { ApiRequestError, getMyProfile, uploadMyProfilePhoto, upsertMyProfile } from '@/lib/api';
 import { appConfig } from '@/lib/config';
 import type { ApiProfile } from '@/types/api';
 import type { HostSetup, WatchingVibe } from '@/types/matchbuddy';
@@ -26,6 +26,7 @@ type SaveProfileResult = {
 
 type ProfileState = {
   activeUserId: null | string;
+  avatarUploading: boolean;
   error: null | string;
   initialized: boolean;
   loading: boolean;
@@ -33,6 +34,7 @@ type ProfileState = {
   bootstrapForUser: (authUserId: null | string) => Promise<void>;
   clear: () => void;
   saveProfile: (input: ProfileSetupInput) => Promise<SaveProfileResult>;
+  uploadAvatar: (input: { base64: string; contentType?: string }) => Promise<SaveProfileResult>;
   refresh: () => Promise<void>;
 };
 
@@ -81,6 +83,7 @@ async function fetchProfileOrNull() {
 
 export const useProfileStore = create<ProfileState>()((set, get) => ({
   activeUserId: null,
+  avatarUploading: false,
   error: null,
   initialized: false,
   loading: false,
@@ -89,6 +92,7 @@ export const useProfileStore = create<ProfileState>()((set, get) => ({
     if (!appConfig.api.enabled || !appConfig.supabase.enabled || !authUserId) {
       set({
         activeUserId: authUserId,
+        avatarUploading: false,
         error: null,
         initialized: true,
         loading: false,
@@ -101,11 +105,12 @@ export const useProfileStore = create<ProfileState>()((set, get) => ({
       return;
     }
 
-    set({
-      activeUserId: authUserId,
-      error: null,
-      initialized: false,
-      loading: true,
+      set({
+        activeUserId: authUserId,
+        avatarUploading: false,
+        error: null,
+        initialized: false,
+        loading: true,
       profile: null,
     });
 
@@ -132,6 +137,7 @@ export const useProfileStore = create<ProfileState>()((set, get) => ({
   clear: () =>
     set({
       activeUserId: null,
+      avatarUploading: false,
       error: null,
       initialized: false,
       loading: false,
@@ -200,6 +206,31 @@ export const useProfileStore = create<ProfileState>()((set, get) => ({
         error: message,
         initialized: true,
         loading: false,
+      });
+
+      return { error: message };
+    }
+  },
+  uploadAvatar: async (input) => {
+    set({ avatarUploading: true, error: null });
+
+    try {
+      const profile = await uploadMyProfilePhoto(input);
+
+      set({
+        avatarUploading: false,
+        error: null,
+        initialized: true,
+        profile,
+      });
+
+      return { error: null };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unable to upload your profile photo right now.';
+
+      set({
+        avatarUploading: false,
+        error: message,
       });
 
       return { error: message };

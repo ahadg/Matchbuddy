@@ -297,6 +297,18 @@ export async function getMyProfile() {
   return response.data;
 }
 
+export async function uploadMyProfilePhoto(input: {
+  base64: string;
+  contentType?: string;
+}) {
+  const response = await apiFetch<ApiEnvelope<ApiProfile>>('/api/profile/me/avatar', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+
+  return response.data;
+}
+
 export async function upsertMyProfile(profile: Partial<ApiProfile>) {
   const response = await apiFetch<ApiEnvelope<ApiProfile>>('/api/profile/me', {
     method: 'PUT',
