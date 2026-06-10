@@ -74,6 +74,7 @@ export type ApiFanDetail = ApiNearbyFan & {
   age: number;
   bio: string;
   favouriteTeams: string[];
+  myRating: null | number;
 };
 
 export type ApiListing = {
@@ -118,6 +119,13 @@ export type ApiWaveResult = {
   status: ApiWaveStatus;
   threadId: null | string;
   fanId: string;
+};
+
+export type ApiFanRatingResult = {
+  fanId: string;
+  rating: number;
+  ratingCount: number;
+  myRating: number;
 };
 
 export type ApiJoinRequest = {

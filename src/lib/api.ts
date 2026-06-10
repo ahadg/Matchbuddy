@@ -6,6 +6,7 @@ import type {
   ApiDirectThreadMessages,
   ApiEnvelope,
   ApiFanDetail,
+  ApiFanRatingResult,
   ApiFixture,
   ApiJoinRequest,
   ApiListing,
@@ -190,6 +191,15 @@ export async function getFanById(
 export async function sendWave(fanId: string) {
   const response = await apiFetch<ApiEnvelope<ApiWaveResult>>(`/api/fans/${fanId}/wave`, {
     method: 'POST',
+  });
+
+  return response.data;
+}
+
+export async function rateFan(fanId: string, score: number) {
+  const response = await apiFetch<ApiEnvelope<ApiFanRatingResult>>(`/api/fans/${fanId}/rate`, {
+    method: 'POST',
+    body: JSON.stringify({ score }),
   });
 
   return response.data;

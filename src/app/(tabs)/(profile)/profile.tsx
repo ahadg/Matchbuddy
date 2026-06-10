@@ -1,5 +1,6 @@
-import { Stack, useRouter } from 'expo-router';
-import { Pressable, ScrollView, View } from 'react-native';
+import { useCallback } from 'react';
+import { Stack, useFocusEffect, useRouter } from 'expo-router';
+import { Pressable, RefreshControl, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { MatchText, SurfaceCard } from '@/components/matchbuddy/ui';
@@ -18,6 +19,7 @@ export default function ProfileScreen() {
   const signOut = useAuthStore((state) => state.signOut);
   const profile = useProfileStore((state) => state.profile);
   const loading = useProfileStore((state) => state.loading);
+  const refresh = useProfileStore((state) => state.refresh);
   const isAdmin = session?.user?.email?.trim().toLowerCase() === MATCHBUDDY_ADMIN_EMAIL;
 
   const displayName = profile?.displayName ?? 'MatchBuddy fan';
@@ -37,11 +39,33 @@ export default function ProfileScreen() {
     { icon: '📺', label: 'Setup', value: profile?.setup ? profile.setup.displayType : 'Not added' },
   ] as const;
 
+  useFocusEffect(
+    useCallback(() => {
+      if (!appConfig.api.enabled || !session?.user?.id) {
+        return undefined;
+      }
+
+      refresh().catch(() => undefined);
+      return undefined;
+    }, [refresh, session?.user?.id]),
+  );
+
   return (
     <>
       <Stack.Screen options={{ title: 'Profile' }} />
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"
+        refreshControl={
+          appConfig.api.enabled && session ? (
+            <RefreshControl
+              refreshing={loading}
+              onRefresh={() => {
+                refresh().catch(() => undefined);
+              }}
+              tintColor={theme.accent}
+            />
+          ) : undefined
+        }
         style={{ flex: 1, backgroundColor: theme.background }}
         contentContainerStyle={{
           paddingTop: insets.top,

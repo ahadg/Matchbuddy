@@ -62,11 +62,11 @@ const fallbackFans = [
 
 const presetRadii = [50, 100] as const;
 
-const radarPoints = [
-  { top: 22, left: 144, color: '#FF5978' },
-  { top: 102, right: 108, color: '#FF5978' },
-  { top: 182, right: 132, color: '#3ED9FF' },
-  { top: 214, left: 118, color: '#9D71FF' },
+const discoveryNodes: Array<{ top: number; left?: number; right?: number }> = [
+  { top: 18, left: 16 },
+  { top: 20, right: 18 },
+  { top: 54, right: 14 },
+  { top: 76, left: 14 },
 ];
 
 type FanCardModel = {
@@ -90,6 +90,7 @@ export default function FansScreen() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const anchor = useDiscoveryStore((state) => state.anchor);
+  const profile = useProfileStore((state) => state.profile);
   const profileLocation = useProfileStore((state) => state.profile?.location ?? null);
   const applyCustomRadius = useDiscoveryStore((state) => state.applyCustomRadius);
   const customRadiusKm = useDiscoveryStore((state) => state.customRadiusKm);
@@ -198,6 +199,19 @@ export default function FansScreen() {
 
   const isInitialLoad = (loading || refreshing) && remoteFans === null;
   const isRefreshing = (loading || refreshing) && remoteFans !== null;
+  const visibleFanCount = cards.length;
+  const hostCount = cards.filter((card) => card.isHost).length;
+  const mutualCount = cards.filter((card) => card.waveStatus === 'mutual').length;
+  const anchorSummary =
+    profile?.neighborhood && profile?.city
+      ? `${profile.neighborhood}, ${profile.city}`
+      : profileLocation
+        ? `${profileLocation.latitude.toFixed(4)}, ${profileLocation.longitude.toFixed(4)}`
+        : `${anchor.latitude.toFixed(4)}, ${anchor.longitude.toFixed(4)}`;
+  const snapshotColors =
+    cards.length > 0
+      ? cards.slice(0, 4).map((card) => card.secondary)
+      : ['#FF6C78', '#9BFF62', '#66D8FF', '#9D71FF'];
 
   async function handleWave(card: FanCardModel) {
     if (!card.isRemote) {
@@ -341,20 +355,105 @@ export default function FansScreen() {
             </View>
           </View>
 
-          {profileLocation ? (
-            <SurfaceCard
-              style={{
-                paddingHorizontal: 16,
-                paddingVertical: 12,
-                borderRadius: 22,
-                backgroundColor: '#171D30',
-                borderColor: 'rgba(255,255,255,0.10)',
-              }}>
-              <MatchText tone="muted" style={{ fontSize: 13, lineHeight: 18 }}>
-                Searching within {radiusKm} km of {profileLocation.latitude.toFixed(4)}, {profileLocation.longitude.toFixed(4)}
-              </MatchText>
-            </SurfaceCard>
-          ) : null}
+          <SurfaceCard
+            style={{
+              padding: 18,
+              borderRadius: 30,
+              backgroundColor: '#171D30',
+              borderColor: 'rgba(255,255,255,0.10)',
+              gap: 16,
+            }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+              <View style={{ flex: 1, gap: 10 }}>
+                <MatchText variant="label" tone="muted">
+                  Live around you
+                </MatchText>
+                <MatchText variant="title" style={{ fontSize: 24, lineHeight: 28 }}>
+                  {isInitialLoad ? `Scanning ${radiusKm} km` : `${visibleFanCount} fans within ${radiusKm} km`}
+                </MatchText>
+                <MatchText tone="muted" style={{ fontSize: 14, lineHeight: 20 }}>
+                  {profileLocation
+                    ? `Anchor: ${anchorSummary}`
+                    : `Using discovery anchor at ${anchorSummary}`}
+                </MatchText>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                  {/* <BadgePill label="Public areas only" compact /> */}
+                  <BadgePill label={isRefreshing ? 'Refreshing now' : 'Live sync'} compact />
+                </View>
+              </View>
+
+              <View
+                style={{
+                  width: 116,
+                  height: 116,
+                  borderRadius: 32,
+                  backgroundColor: 'rgba(255,255,255,0.04)',
+                  borderWidth: 1,
+                  borderColor: 'rgba(255,255,255,0.08)',
+                  overflow: 'hidden',
+                  flexShrink: 0,
+                }}>
+                <View
+                  style={{
+                    position: 'absolute',
+                    left: -10,
+                    top: -12,
+                    width: 72,
+                    height: 72,
+                    borderRadius: 999,
+                    backgroundColor: 'rgba(160,255,97,0.14)',
+                  }}
+                />
+                <View
+                  style={{
+                    position: 'absolute',
+                    right: -16,
+                    bottom: -12,
+                    width: 84,
+                    height: 84,
+                    borderRadius: 999,
+                    backgroundColor: 'rgba(157,113,255,0.12)',
+                  }}
+                />
+                <View
+                  style={{
+                    position: 'absolute',
+                    left: 41,
+                    top: 41,
+                    width: 34,
+                    height: 34,
+                    borderRadius: 999,
+                    backgroundColor: 'rgba(160,255,97,0.18)',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}>
+                  <View style={{ width: 16, height: 16, borderRadius: 999, backgroundColor: theme.accent }} />
+                </View>
+                {discoveryNodes.map((point, index) => (
+                  <View
+                    key={`${point.top}-${index}`}
+                    style={{
+                      position: 'absolute',
+                      width: 14,
+                      height: 14,
+                      borderRadius: 999,
+                      backgroundColor: snapshotColors[index] ?? '#66D8FF',
+                      ...(point.top !== undefined ? { top: point.top } : {}),
+                      ...(point.left !== undefined ? { left: point.left } : {}),
+                      ...(point.right !== undefined ? { right: point.right } : {}),
+                    }}
+                  />
+                ))}
+              </View>
+            </View>
+
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+              <DiscoveryStatPill label="Fans" value={String(visibleFanCount)} />
+              <DiscoveryStatPill label="Hosts" value={String(hostCount)} />
+              <DiscoveryStatPill label="Radius" value={`${radiusKm} km`} />
+              {mutualCount > 0 ? <DiscoveryStatPill label="Mutual" value={String(mutualCount)} accent /> : null}
+            </View>
+          </SurfaceCard>
 
           {isInitialLoad ? (
             <LoadingSurface
@@ -370,81 +469,6 @@ export default function FansScreen() {
               subtitle="Pulling the latest people in your selected radius."
             />
           ) : null}
-
-          <SurfaceCard
-            style={{
-              minHeight: 280,
-              padding: 16,
-              borderRadius: 30,
-              backgroundColor: '#171D30',
-              borderColor: 'rgba(255,255,255,0.10)',
-            }}>
-            {[0.28, 0.48, 0.68, 0.88].map((scale) => (
-              <View
-                key={scale}
-                style={{
-                  position: 'absolute',
-                  top: '50%',
-                  left: '50%',
-                  width: 200 * scale,
-                  height: 200 * scale,
-                  marginTop: -(200 * scale) / 2,
-                  marginLeft: -(200 * scale) / 2,
-                  borderRadius: 999,
-                  borderWidth: 1,
-                  borderColor: scale === 0.88 ? 'rgba(160,255,97,0.20)' : 'rgba(160,255,97,0.16)',
-                }}
-              />
-            ))}
-
-            <View
-              style={{
-                position: 'absolute',
-                top: '50%',
-                left: '50%',
-                width: 42,
-                height: 42,
-                marginLeft: -21,
-                marginTop: -21,
-                borderRadius: 999,
-                backgroundColor: 'rgba(160,255,97,0.18)',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}>
-              <View style={{ width: 22, height: 22, borderRadius: 999, backgroundColor: theme.accent }} />
-            </View>
-
-            {radarPoints.map((point, index) => (
-              <View
-                key={index}
-                style={{
-                  position: 'absolute',
-                  width: 16,
-                  height: 16,
-                  borderRadius: 999,
-                  backgroundColor: point.color,
-                  boxShadow: `0 0 24px ${point.color}`,
-                  ...(point.top !== undefined ? { top: point.top } : {}),
-                  ...(point.left !== undefined ? { left: point.left } : {}),
-                  ...(point.right !== undefined ? { right: point.right } : {}),
-                }}
-              />
-            ))}
-
-            <View
-              style={{
-                position: 'absolute',
-                left: 16,
-                right: 16,
-                bottom: 16,
-                flexDirection: 'row',
-                justifyContent: 'space-between',
-                gap: 10,
-              }}>
-              <BadgePill label="🛡 Public areas only" />
-              <BadgePill label={`${cards.length} within ${radiusKm}km`} />
-            </View>
-          </SurfaceCard>
 
           {loading ? (
             <SurfaceCard style={{ borderRadius: 24 }}>
@@ -652,18 +676,55 @@ function waveButtonBorder(status: ApiWaveStatus) {
   return 'rgba(160,255,97,0.28)';
 }
 
-function BadgePill({ label }: { label: string }) {
+function BadgePill({ label, compact = false }: { label: string; compact?: boolean }) {
   return (
     <View
       style={{
-        paddingHorizontal: 16,
-        paddingVertical: 10,
+        paddingHorizontal: compact ? 12 : 16,
+        paddingVertical: compact ? 8 : 10,
         borderRadius: 999,
         backgroundColor: 'rgba(255,255,255,0.08)',
         borderWidth: 1,
         borderColor: 'rgba(255,255,255,0.10)',
       }}>
-      <MatchText style={{ fontSize: 14, fontWeight: '700' }}>{label}</MatchText>
+      <MatchText style={{ fontSize: compact ? 12 : 14, fontWeight: '700' }}>{label}</MatchText>
+    </View>
+  );
+}
+
+function DiscoveryStatPill({
+  label,
+  value,
+  accent = false,
+}: {
+  label: string;
+  value: string;
+  accent?: boolean;
+}) {
+  return (
+    <View
+      style={{
+        minWidth: 78,
+        paddingHorizontal: 12,
+        paddingVertical: 11,
+        borderRadius: 18,
+        backgroundColor: accent ? 'rgba(160,255,97,0.12)' : 'rgba(255,255,255,0.05)',
+        borderWidth: 1,
+        borderColor: accent ? 'rgba(160,255,97,0.18)' : 'rgba(255,255,255,0.08)',
+      }}>
+      <MatchText variant="label" tone="muted" style={{ fontSize: 10, lineHeight: 12 }}>
+        {label}
+      </MatchText>
+      <MatchText
+        variant="subtitle"
+        style={{
+          marginTop: 4,
+          fontSize: 15,
+          lineHeight: 18,
+          color: accent ? '#9BFF62' : undefined,
+        }}>
+        {value}
+      </MatchText>
     </View>
   );
 }

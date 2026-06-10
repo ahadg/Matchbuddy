@@ -1,6 +1,6 @@
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, ScrollView, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, View } from 'react-native';
 
 import {
   ActionButton,
@@ -18,7 +18,7 @@ import {
 import { MaxContentWidth, Radii, Spacing } from '@/constants/theme';
 import { fansById, worldCupFixtures } from '@/data/matchbuddy-data';
 import { useTheme } from '@/hooks/use-theme';
-import { ApiConfigurationError, getFanById, sendWave } from '@/lib/api';
+import { ApiConfigurationError, getFanById, rateFan, sendWave } from '@/lib/api';
 import { useDiscoveryStore } from '@/stores/discovery-store';
 import { useSocialStore } from '@/stores/social-store';
 import type { ApiFanDetail, ApiWaveStatus } from '@/types/api';
@@ -37,7 +37,9 @@ export default function FanDetailScreen() {
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<null | string>(null);
   const [actionError, setActionError] = useState<null | string>(null);
+  const [ratingError, setRatingError] = useState<null | string>(null);
   const [sendingWave, setSendingWave] = useState(false);
+  const [submittingRating, setSubmittingRating] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -153,6 +155,34 @@ export default function FanDetailScreen() {
       setActionError(error instanceof Error ? error.message : 'Could not send your wave.');
     } finally {
       setSendingWave(false);
+    }
+  }
+
+  async function handleRate(score: number) {
+    if (!remoteFan || submittingRating) {
+      return;
+    }
+
+    setSubmittingRating(true);
+    setRatingError(null);
+
+    try {
+      const result = await rateFan(remoteFan.id, score);
+      setRemoteFan((current) =>
+        current
+          ? {
+              ...current,
+              rating: result.rating,
+              ratingCount: result.ratingCount,
+              myRating: result.myRating,
+            }
+          : current,
+      );
+      bumpSocialRevision();
+    } catch (error) {
+      setRatingError(error instanceof Error ? error.message : 'Could not save your rating.');
+    } finally {
+      setSubmittingRating(false);
     }
   }
 
@@ -278,6 +308,62 @@ export default function FanDetailScreen() {
                 </View>
                 {actionError ? <MatchText tone="warm">{actionError}</MatchText> : null}
               </SurfaceCard>
+
+              {remoteFan ? (
+                <SurfaceCard tone="warm" style={{ gap: Spacing.three }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.three }}>
+                    <View style={{ flex: 1, gap: 4 }}>
+                      <MatchText variant="subtitle">Rate this fan</MatchText>
+                      <MatchText tone="muted">
+                        {remoteFan.myRating
+                          ? `Your rating: ${remoteFan.myRating}/5. Tap again any time to update it.`
+                          : 'Leave a 1 to 5 star rating after you watch together.'}
+                      </MatchText>
+                    </View>
+                    <Pill tone="warm">{`${fan.rating.toFixed(1)} avg`}</Pill>
+                  </View>
+
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two }}>
+                    {[1, 2, 3, 4, 5].map((score) => {
+                      const isSelected = remoteFan.myRating === score;
+
+                      return (
+                        <Pressable
+                          key={score}
+                          disabled={submittingRating}
+                          onPress={() => {
+                            handleRate(score).catch(() => undefined);
+                          }}
+                          style={({ pressed }) => ({
+                            minWidth: 56,
+                            paddingHorizontal: 14,
+                            paddingVertical: 12,
+                            borderRadius: 18,
+                            borderWidth: 1,
+                            borderColor: isSelected ? theme.accent : theme.border,
+                            backgroundColor: isSelected ? theme.accent : theme.backgroundElement,
+                            opacity: pressed || submittingRating ? 0.78 : 1,
+                            alignItems: 'center',
+                          })}>
+                          <MatchText
+                            variant="bodyLarge"
+                            style={{
+                              color: isSelected ? theme.textInverted : theme.text,
+                              fontSize: 16,
+                              lineHeight: 18,
+                              fontWeight: '800',
+                            }}>
+                            {`★ ${score}`}
+                          </MatchText>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+
+                  {submittingRating ? <MatchText tone="muted">Saving your rating…</MatchText> : null}
+                  {ratingError ? <MatchText tone="warm">{ratingError}</MatchText> : null}
+                </SurfaceCard>
+              ) : null}
 
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two }}>
                 <MetricTile label="Wave back" value={`${fan.waveBackRate}%`} tone="accent" />
