@@ -10,6 +10,7 @@ import { appConfig } from '@/lib/config';
 import { oneSignalClient, type OneSignalClickEvent } from '@/lib/onesignal';
 import { useAuthStore } from '@/stores/auth-store';
 import { useDiscoveryStore } from '@/stores/discovery-store';
+import { useNotificationStore } from '@/stores/notification-store';
 import { useOneSignalStore } from '@/stores/onesignal-store';
 import { hasCompletedProfile, useProfileStore } from '@/stores/profile-store';
 
@@ -38,6 +39,7 @@ export default function RootLayout() {
   const profileInitialized = useProfileStore((state) => state.initialized);
   const refreshProfile = useProfileStore((state) => state.refresh);
   const setAnchor = useDiscoveryStore((state) => state.setAnchor);
+  const clearNotifications = useNotificationStore((state) => state.clear);
   const bootstrapOneSignal = useOneSignalStore((state) => state.bootstrap);
   const dismissOneSignalPrompt = useOneSignalStore((state) => state.dismissPrompt);
   const oneSignalInitialized = useOneSignalStore((state) => state.initialized);
@@ -63,11 +65,16 @@ export default function RootLayout() {
 
     if (!authEnabled) {
       clearProfile();
+      clearNotifications();
       return;
     }
 
+    if (!session?.user.id) {
+      clearNotifications();
+    }
+
     bootstrapProfile(session?.user.id ?? null).catch(() => undefined);
-  }, [bootstrapProfile, clearProfile, initialized, session?.user.id]);
+  }, [bootstrapProfile, clearNotifications, clearProfile, initialized, session?.user.id]);
 
   useEffect(() => {
     syncOneSignalAuthUser(session?.user.id ?? null).catch(() => undefined);
@@ -214,6 +221,7 @@ export default function RootLayout() {
           </Stack.Protected>
           <Stack.Protected guard={isSignedIn && !needsProfileSetup}>
             <Stack.Screen name="(tabs)" />
+            <Stack.Screen name="notifications" />
           </Stack.Protected>
           <Stack.Protected guard={isSignedIn}>
             <Stack.Screen name="profile-setup" />

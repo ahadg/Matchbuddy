@@ -185,6 +185,29 @@ export type ApiChatsInbox = {
   groupRooms: ApiGroupRoomPreview[];
 };
 
+export type ApiNotification = {
+  id: string;
+  recipientProfileId: string;
+  actorProfileId: null | string;
+  actorDisplayName: null | string;
+  actorAvatarUrl: null | string;
+  actorInitial: null | string;
+  type: string;
+  title: string;
+  body: string;
+  threadId: null | string;
+  listingId: null | string;
+  fanId: null | string;
+  metadata: Record<string, unknown>;
+  readAt: null | string;
+  createdAt: string;
+};
+
+export type ApiNotificationsFeed = {
+  items: ApiNotification[];
+  unreadCount: number;
+};
+
 export type ApiDirectThread = {
   id: string;
   otherProfileId: string;

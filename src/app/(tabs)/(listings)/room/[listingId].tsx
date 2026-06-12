@@ -6,6 +6,7 @@ import { Avatar, MatchText, SurfaceCard } from '@/components/matchbuddy/ui';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { ApiConfigurationError, getListingRoomMessages, sendListingRoomMessage } from '@/lib/api';
+import { connectActiveChatSocket } from '@/lib/realtime';
 import { useProfileStore } from '@/stores/profile-store';
 import { useSocialStore } from '@/stores/social-store';
 import type { ApiListingRoomMessages } from '@/types/api';
@@ -15,7 +16,6 @@ export default function ListingRoomScreen() {
   const theme = useTheme();
   const { listingId } = useLocalSearchParams<{ listingId: string }>();
   const profileId = useProfileStore((state) => state.profile?.id ?? null);
-  const socialRevision = useSocialStore((state) => state.revision);
   const bumpSocialRevision = useSocialStore((state) => state.bumpRevision);
   const [roomState, setRoomState] = useState<ApiListingRoomMessages | null>(null);
   const [loading, setLoading] = useState(false);
@@ -59,7 +59,50 @@ export default function ListingRoomScreen() {
     return () => {
       cancelled = true;
     };
-  }, [listingId, socialRevision]);
+  }, [listingId]);
+
+  useEffect(() => {
+    if (!listingId) {
+      return undefined;
+    }
+
+    let disposed = false;
+    let disconnect: () => void = () => undefined;
+
+    connectActiveChatSocket({
+      listingId,
+      onListingMessage: (message) => {
+        if (disposed) {
+          return;
+        }
+
+        setRoomState((current) => {
+          if (!current || current.messages.some((entry) => entry.id === message.id)) {
+            return current;
+          }
+
+          return {
+            ...current,
+            messages: [...current.messages, message],
+          };
+        });
+      },
+      onError: (message) => {
+        if (!disposed) {
+          setError((current) => current ?? message);
+        }
+      },
+    })
+      .then((cleanup) => {
+        disconnect = cleanup;
+      })
+      .catch(() => undefined);
+
+    return () => {
+      disposed = true;
+      disconnect();
+    };
+  }, [listingId]);
 
   async function handleSend() {
     if (!listingId || !draft.trim()) {

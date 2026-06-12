@@ -1,6 +1,6 @@
-import { Stack, useRouter } from 'expo-router';
+import { Stack, useFocusEffect, useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -15,6 +15,7 @@ import {
   upsertMyProfile,
 } from '@/lib/api';
 import { useDiscoveryStore } from '@/stores/discovery-store';
+import { useNotificationStore } from '@/stores/notification-store';
 import { useProfileStore } from '@/stores/profile-store';
 import type { ApiFixture, ApiListing } from '@/types/api';
 
@@ -132,6 +133,8 @@ export default function HomeScreen() {
   const anchor = useDiscoveryStore((state) => state.anchor);
   const profile = useProfileStore((state) => state.profile);
   const refreshProfile = useProfileStore((state) => state.refresh);
+  const notificationUnreadCount = useNotificationStore((state) => state.unreadCount);
+  const refreshNotifications = useNotificationStore((state) => state.refresh);
   const [fixtures, setFixtures] = useState<ApiFixture[]>([]);
   const [fixtureListings, setFixtureListings] = useState<Record<string, ApiListing>>({});
   const [nearbyCounts, setNearbyCounts] = useState<Record<string, number>>({});
@@ -187,6 +190,13 @@ export default function HomeScreen() {
       cancelled = true;
     };
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      refreshNotifications().catch(() => undefined);
+      return undefined;
+    }, [refreshNotifications]),
+  );
 
   const schedule = fixtures.length ? fixtures : fallbackFixtures;
   const sortedSchedule = useMemo(
@@ -461,10 +471,16 @@ export default function HomeScreen() {
                 }
               />
               <CircleAction
-                accentDot
                 onPress={() => {
-                  router.push('/listings');
+                  router.push('/notifications');
                 }}
+                badgeLabel={
+                  notificationUnreadCount > 0
+                    ? notificationUnreadCount > 99
+                      ? '99+'
+                      : String(notificationUnreadCount)
+                    : null
+                }
                 symbolName={{ ios: 'bell.fill', android: 'notifications', web: 'notifications' }}
               />
             </View>
@@ -999,10 +1015,12 @@ function MetaPill({ label, accent = false }: { label: string; accent?: boolean }
 function CircleAction({
   symbolName,
   accentDot = false,
+  badgeLabel = null,
   onPress,
 }: {
   symbolName: any;
   accentDot?: boolean;
+  badgeLabel?: null | string;
   onPress?: () => void;
 }) {
   return (
@@ -1022,7 +1040,27 @@ function CircleAction({
         opacity: pressed ? 0.92 : 1,
       })}>
       <MatchSymbol name={symbolName} size={23} />
-      {accentDot ? (
+      {badgeLabel ? (
+        <View
+          style={{
+            position: 'absolute',
+            top: 10,
+            right: 8,
+            minWidth: 20,
+            height: 20,
+            borderRadius: 999,
+            paddingHorizontal: 5,
+            backgroundColor: '#FF5E78',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}>
+          <MatchText
+            variant="caption"
+            style={{ color: '#FFF6F8', fontSize: 10, lineHeight: 12, fontWeight: '800' }}>
+            {badgeLabel}
+          </MatchText>
+        </View>
+      ) : accentDot ? (
         <View
           style={{
             position: 'absolute',

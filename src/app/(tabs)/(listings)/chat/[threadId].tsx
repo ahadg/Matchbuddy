@@ -6,6 +6,7 @@ import { Avatar, MatchText, SurfaceCard } from '@/components/matchbuddy/ui';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { ApiConfigurationError, getDirectThreadMessages, sendDirectThreadMessage } from '@/lib/api';
+import { connectActiveChatSocket } from '@/lib/realtime';
 import { useProfileStore } from '@/stores/profile-store';
 import { useSocialStore } from '@/stores/social-store';
 import type { ApiDirectThreadMessages } from '@/types/api';
@@ -15,7 +16,6 @@ export default function DirectChatScreen() {
   const theme = useTheme();
   const { threadId } = useLocalSearchParams<{ threadId: string }>();
   const profileId = useProfileStore((state) => state.profile?.id ?? null);
-  const socialRevision = useSocialStore((state) => state.revision);
   const bumpSocialRevision = useSocialStore((state) => state.bumpRevision);
   const [conversation, setConversation] = useState<ApiDirectThreadMessages | null>(null);
   const [loading, setLoading] = useState(false);
@@ -59,7 +59,50 @@ export default function DirectChatScreen() {
     return () => {
       cancelled = true;
     };
-  }, [threadId, socialRevision]);
+  }, [threadId]);
+
+  useEffect(() => {
+    if (!threadId) {
+      return undefined;
+    }
+
+    let disposed = false;
+    let disconnect: () => void = () => undefined;
+
+    connectActiveChatSocket({
+      threadId,
+      onDirectMessage: (message) => {
+        if (disposed) {
+          return;
+        }
+
+        setConversation((current) => {
+          if (!current || current.messages.some((entry) => entry.id === message.id)) {
+            return current;
+          }
+
+          return {
+            ...current,
+            messages: [...current.messages, message],
+          };
+        });
+      },
+      onError: (message) => {
+        if (!disposed) {
+          setError((current) => current ?? message);
+        }
+      },
+    })
+      .then((cleanup) => {
+        disconnect = cleanup;
+      })
+      .catch(() => undefined);
+
+    return () => {
+      disposed = true;
+      disconnect();
+    };
+  }, [threadId]);
 
   async function handleSend() {
     if (!threadId || !draft.trim()) {

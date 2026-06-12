@@ -14,6 +14,7 @@ import type {
   ApiListingMessage,
   ApiListingRoomMessages,
   ApiNearbyFan,
+  ApiNotificationsFeed,
   ApiProfile,
   ApiWaveResult,
 } from '@/types/api';
@@ -275,6 +276,19 @@ export async function sendListingRoomMessage(listingId: string, body: string) {
 
 export async function getChatsInbox() {
   const response = await apiFetch<ApiEnvelope<ApiChatsInbox>>('/api/chats/inbox');
+  return response.data;
+}
+
+export async function getNotifications(limit = 30) {
+  const response = await apiFetch<ApiEnvelope<ApiNotificationsFeed>>(`/api/notifications?limit=${limit}`);
+  return response.data;
+}
+
+export async function markAllNotificationsRead() {
+  const response = await apiFetch<ApiEnvelope<{ success: boolean }>>('/api/notifications/read-all', {
+    method: 'POST',
+  });
+
   return response.data;
 }
 
