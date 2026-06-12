@@ -214,6 +214,8 @@ export default function ListingRoomScreen() {
               {roomState?.messages.length ? (
                 roomState.messages.map((message) => {
                   const own = message.senderProfileId === profileId;
+                  const bubbleTone = own ? 'rgba(160,255,97,0.18)' : '#171D30';
+                  const bubbleBorder = own ? 'rgba(160,255,97,0.24)' : 'rgba(255,255,255,0.10)';
 
                   return (
                     <View
@@ -221,7 +223,14 @@ export default function ListingRoomScreen() {
                       style={{
                         alignItems: own ? 'flex-end' : 'flex-start',
                       }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 10 }}>
+                      <View
+                        style={{
+                          flexDirection: 'row',
+                          alignItems: 'flex-end',
+                          justifyContent: own ? 'flex-end' : 'flex-start',
+                          gap: 10,
+                          width: '100%',
+                        }}>
                         {!own ? (
                           <Avatar
                             name={message.senderDisplayName}
@@ -231,22 +240,42 @@ export default function ListingRoomScreen() {
                         ) : null}
                         <View
                           style={{
-                            maxWidth: '86%',
+                            minWidth: own ? 148 : undefined,
+                            maxWidth: own ? '78%' : '86%',
                             borderRadius: 24,
                             paddingHorizontal: 16,
-                            paddingVertical: 12,
-                            backgroundColor: own ? 'rgba(160,255,97,0.18)' : '#171D30',
+                            paddingVertical: own ? 14 : 12,
+                            backgroundColor: bubbleTone,
                             borderWidth: 1,
-                            borderColor: own ? 'rgba(160,255,97,0.24)' : 'rgba(255,255,255,0.10)',
-                            gap: 6,
+                            borderColor: bubbleBorder,
+                            borderTopRightRadius: own ? 16 : 24,
+                            borderTopLeftRadius: own ? 24 : 16,
+                            gap: own ? 8 : 6,
                           }}>
-                          <MatchText variant="caption" tone={own ? 'accent' : 'muted'}>
-                            {own ? 'You' : message.senderDisplayName}
-                          </MatchText>
+                          {!own ? (
+                            <MatchText variant="caption" tone="muted">
+                              {message.senderDisplayName}
+                            </MatchText>
+                          ) : null}
                           <MatchText style={{ fontSize: 14, lineHeight: 20 }}>{message.body}</MatchText>
-                          <MatchText tone="muted" style={{ fontSize: 12 }}>
-                            {formatMessageTime(message.createdAt)}
-                          </MatchText>
+                          <View
+                            style={{
+                              flexDirection: 'row',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              gap: 10,
+                            }}>
+                            {own ? (
+                              <MatchText variant="caption" tone="accent">
+                                You
+                              </MatchText>
+                            ) : (
+                              <View />
+                            )}
+                            <MatchText tone="muted" style={{ fontSize: 12 }}>
+                              {formatMessageTime(message.createdAt)}
+                            </MatchText>
+                          </View>
                         </View>
                       </View>
                     </View>
