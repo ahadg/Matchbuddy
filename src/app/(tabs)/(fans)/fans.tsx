@@ -207,6 +207,7 @@ export default function FansScreen() {
   const visibleFanCount = cards.length;
   const hostCount = cards.filter((card) => card.isHost).length;
   const mutualCount = cards.filter((card) => card.waveStatus === 'mutual').length;
+  const suggestedRadiusKm = radiusKm < 100 ? 100 : Math.min(radiusKm + 50, 500);
   const anchorSummary =
     profile?.neighborhood && profile?.city
       ? `${profile.neighborhood}, ${profile.city}`
@@ -582,17 +583,104 @@ export default function FansScreen() {
           ) : !isInitialLoad ? (
             <SurfaceCard
               style={{
-                padding: 18,
-                borderRadius: 24,
+                padding: 20,
+                borderRadius: 28,
                 backgroundColor: '#171D30',
                 borderColor: 'rgba(255,255,255,0.10)',
+                overflow: 'hidden',
               }}>
-              <MatchText variant="title" style={{ fontSize: 22, lineHeight: 24 }}>
-                No fans found in this radius
-              </MatchText>
-              <MatchText tone="muted" style={{ fontSize: 14, lineHeight: 20 }}>
-                Try a bigger km range or update your saved latitude and longitude in your profile.
-              </MatchText>
+              <View
+                style={{
+                  position: 'absolute',
+                  right: -24,
+                  top: -18,
+                  width: 140,
+                  height: 140,
+                  borderRadius: 999,
+                  backgroundColor: 'rgba(160,255,97,0.08)',
+                }}
+              />
+              <View
+                style={{
+                  position: 'absolute',
+                  left: -22,
+                  bottom: -34,
+                  width: 130,
+                  height: 130,
+                  borderRadius: 999,
+                  backgroundColor: 'rgba(157,113,255,0.10)',
+                }}
+              />
+
+              <View style={{ gap: 14 }}>
+                <View
+                  style={{
+                    width: 62,
+                    height: 62,
+                    borderRadius: 22,
+                    backgroundColor: 'rgba(160,255,97,0.12)',
+                    borderWidth: 1,
+                    borderColor: 'rgba(160,255,97,0.18)',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}>
+                  <View
+                    style={{
+                      width: 18,
+                      height: 18,
+                      borderRadius: 999,
+                      backgroundColor: theme.accent,
+                    }}
+                  />
+                </View>
+
+                <View style={{ gap: 8 }}>
+                  <MatchText variant="title" style={{ fontSize: 24, lineHeight: 26 }}>
+                    It&apos;s a little quiet nearby right now
+                  </MatchText>
+                  <MatchText tone="muted" style={{ fontSize: 14, lineHeight: 21 }}>
+                    Sorry, we couldn&apos;t find any fans within {radiusKm} km of {anchorSummary}. Try widening your search radius, and keep notifications on so you don&apos;t miss fresh matchday activity nearby.
+                  </MatchText>
+                </View>
+
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+                  <Pressable
+                    onPress={() => {
+                      setRadiusKm(suggestedRadiusKm);
+                    }}
+                    style={({ pressed }) => ({
+                      minHeight: 46,
+                      paddingHorizontal: 16,
+                      borderRadius: 999,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      backgroundColor: 'rgba(160,255,97,0.14)',
+                      borderWidth: 1,
+                      borderColor: 'rgba(160,255,97,0.22)',
+                      opacity: pressed ? 0.92 : 1,
+                    })}>
+                    <MatchText tone="accent" style={{ fontSize: 14, fontWeight: '800' }}>
+                      Try {suggestedRadiusKm} km
+                    </MatchText>
+                  </Pressable>
+
+                  <View
+                    style={{
+                      minHeight: 46,
+                      paddingHorizontal: 14,
+                      borderRadius: 999,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      backgroundColor: 'rgba(255,255,255,0.05)',
+                      borderWidth: 1,
+                      borderColor: 'rgba(255,255,255,0.08)',
+                    }}>
+                    <MatchText tone="muted" style={{ fontSize: 13, fontWeight: '700' }}>
+                      Current radius · {radiusKm} km
+                    </MatchText>
+                  </View>
+                </View>
+              </View>
             </SurfaceCard>
           ) : null}
         </View>

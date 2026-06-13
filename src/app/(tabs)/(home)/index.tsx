@@ -676,11 +676,12 @@ export default function HomeScreen() {
           <View
             style={{
               flexDirection: 'row',
-              alignItems: 'center',
+              alignItems: 'flex-start',
               justifyContent: 'space-between',
               gap: Spacing.two,
+              flexWrap: 'wrap',
             }}>
-            <View style={{ gap: 2 }}>
+            <View style={{ gap: 2, flex: 1, minWidth: 0 }}>
               <MatchText variant="title" style={{ fontSize: 24, lineHeight: 26 }}>
                 World Cup 2026
               </MatchText>
@@ -698,8 +699,13 @@ export default function HomeScreen() {
                 backgroundColor: 'rgba(160,255,97,0.10)',
                 borderWidth: 1,
                 borderColor: 'rgba(160,255,97,0.18)',
+                flexShrink: 0,
+                alignSelf: 'flex-start',
               }}>
-              <MatchText variant="caption" tone="accent" style={{ fontSize: 12 }}>
+              <MatchText
+                variant="caption"
+                tone="accent"
+                style={{ fontSize: 12, textAlign: 'center' }}>
                 {filteredFixtures.length
                   ? `${Math.min(visibleFixtures.length, filteredFixtures.length)} / ${filteredFixtures.length}`
                   : fixtures.length
