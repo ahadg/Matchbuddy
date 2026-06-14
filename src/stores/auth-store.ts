@@ -22,11 +22,17 @@ type AuthState = {
   signInWithPassword: (email: string, password: string) => Promise<AuthResult>;
   verifyOtp: (token: string) => Promise<AuthResult>;
   signOut: () => Promise<void>;
+  clearLocalSession: () => void;
   clearPendingEmail: () => void;
 };
 
 let bootstrapPromise: null | Promise<void> = null;
 let authSubscriptionRegistered = false;
+const clearedAuthState = {
+  session: null,
+  user: null,
+  pendingEmail: '',
+} as const;
 
 export const useAuthStore = create<AuthState>()((set, get) => ({
   initialized: false,
@@ -197,12 +203,15 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
     return { error: null };
   },
   signOut: async () => {
-    if (!appConfig.supabase.enabled) {
-      return;
+    if (appConfig.supabase.enabled) {
+      try {
+        await supabase.auth.signOut();
+      } catch {
+        // We still clear local auth state below so the user is signed out on device.
+      }
     }
-
-    await supabase.auth.signOut();
-    set({ session: null, user: null, pendingEmail: '' });
+    set(clearedAuthState);
   },
+  clearLocalSession: () => set(clearedAuthState),
   clearPendingEmail: () => set({ pendingEmail: '' }),
 }));

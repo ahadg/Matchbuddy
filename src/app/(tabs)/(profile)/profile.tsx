@@ -11,6 +11,7 @@ import { MATCHBUDDY_ADMIN_EMAIL } from '@/constants/admin';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { appConfig } from '@/lib/config';
+import { deleteMyAccount } from '@/lib/api';
 import { useAuthStore } from '@/stores/auth-store';
 import { useProfileStore } from '@/stores/profile-store';
 
@@ -20,14 +21,19 @@ export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const session = useAuthStore((state) => state.session);
   const signOut = useAuthStore((state) => state.signOut);
+  const clearLocalSession = useAuthStore((state) => state.clearLocalSession);
   const profile = useProfileStore((state) => state.profile);
   const loading = useProfileStore((state) => state.loading);
   const avatarUploading = useProfileStore((state) => state.avatarUploading);
   const refresh = useProfileStore((state) => state.refresh);
   const uploadAvatar = useProfileStore((state) => state.uploadAvatar);
+  const clearProfile = useProfileStore((state) => state.clear);
   const isAdmin = session?.user?.email?.trim().toLowerCase() === MATCHBUDDY_ADMIN_EMAIL;
   const [photoMessage, setPhotoMessage] = useState<null | string>(null);
   const [photoMessageTone, setPhotoMessageTone] = useState<'accent' | 'danger'>('accent');
+  const [deleteStep, setDeleteStep] = useState<'idle' | 'confirming'>('idle');
+  const [deleteError, setDeleteError] = useState<null | string>(null);
+  const [deletingAccount, setDeletingAccount] = useState(false);
 
   const displayName = profile?.displayName ?? 'MatchBuddy fan';
   const initial = displayName[0]?.toUpperCase() ?? 'M';
@@ -109,6 +115,30 @@ export default function ProfileScreen() {
       );
     }
   }, [uploadAvatar]);
+
+  const handleDeleteAccount = useCallback(async () => {
+    if (deletingAccount) {
+      return;
+    }
+
+    setDeletingAccount(true);
+    setDeleteError(null);
+
+    try {
+      await deleteMyAccount();
+      clearProfile();
+      clearLocalSession();
+      await signOut().catch(() => undefined);
+      router.replace('/sign-in');
+    } catch (error) {
+      setDeleteError(
+        error instanceof Error
+          ? error.message
+          : 'We could not delete your account right now. Please try again.',
+      );
+      setDeletingAccount(false);
+    }
+  }, [clearLocalSession, clearProfile, deletingAccount, router, signOut]);
 
   return (
     <>
@@ -439,6 +469,102 @@ export default function ProfileScreen() {
                 </View>
               ))}
             </SurfaceCard>
+
+            {appConfig.supabase.enabled && session ? (
+              <SurfaceCard
+                tone="danger"
+                style={{
+                  padding: 18,
+                  borderRadius: 30,
+                  backgroundColor: '#171D30',
+                  borderColor: 'rgba(255,141,98,0.20)',
+                  gap: 12,
+                }}>
+                <View style={{ gap: 6 }}>
+                  <MatchText variant="subtitle">Delete account</MatchText>
+                  <MatchText tone="muted" style={{ fontSize: 14, lineHeight: 20 }}>
+                    This permanently removes your MatchBuddy account, profile, hosted listings, join requests, and account-linked chat data from active use.
+                  </MatchText>
+                </View>
+
+                {deleteStep === 'confirming' ? (
+                  <>
+                    <MatchText tone="warm" style={{ fontSize: 13, lineHeight: 18 }}>
+                      This action cannot be undone. Delete only if you are sure.
+                    </MatchText>
+                    <View style={{ flexDirection: 'row', gap: 10 }}>
+                      <Pressable
+                        disabled={deletingAccount}
+                        onPress={() => {
+                          setDeleteError(null);
+                          setDeleteStep('idle');
+                        }}
+                        style={({ pressed }) => ({
+                          flex: 1,
+                          minHeight: 52,
+                          borderRadius: 999,
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          borderWidth: 1,
+                          borderColor: 'rgba(255,255,255,0.10)',
+                          backgroundColor: '#11182A',
+                          opacity: pressed || deletingAccount ? 0.82 : 1,
+                        })}>
+                        <MatchText variant="subtitle" style={{ fontSize: 15, lineHeight: 18 }}>
+                          Cancel
+                        </MatchText>
+                      </Pressable>
+                      <Pressable
+                        disabled={deletingAccount}
+                        onPress={() => {
+                          handleDeleteAccount().catch(() => undefined);
+                        }}
+                        style={({ pressed }) => ({
+                          flex: 1,
+                          minHeight: 52,
+                          borderRadius: 999,
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          backgroundColor: theme.warm,
+                          opacity: pressed || deletingAccount ? 0.82 : 1,
+                        })}>
+                        <MatchText
+                          variant="subtitle"
+                          style={{ color: theme.textInverted, fontSize: 15, lineHeight: 18 }}>
+                          {deletingAccount ? 'Deleting…' : 'Delete permanently'}
+                        </MatchText>
+                      </Pressable>
+                    </View>
+                  </>
+                ) : (
+                  <Pressable
+                    onPress={() => {
+                      setDeleteError(null);
+                      setDeleteStep('confirming');
+                    }}
+                    style={({ pressed }) => ({
+                      minHeight: 52,
+                      borderRadius: 999,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      backgroundColor: '#2A1620',
+                      borderWidth: 1,
+                      borderColor: 'rgba(255,141,98,0.24)',
+                      opacity: pressed ? 0.86 : 1,
+                    })}>
+                    <MatchText variant="subtitle" style={{ color: theme.warm, fontSize: 15, lineHeight: 18 }}>
+                      Delete account
+                    </MatchText>
+                  </Pressable>
+                )}
+
+                {deleteError ? (
+                  <MatchText tone="warm" style={{ fontSize: 13, lineHeight: 18 }}>
+                    {deleteError}
+                  </MatchText>
+                ) : null}
+              </SurfaceCard>
+            ) : null}
           </View>
         </View>
       </ScrollView>

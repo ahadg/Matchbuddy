@@ -364,6 +364,15 @@ export async function uploadMyProfilePhoto(input: {
   return response.data;
 }
 
+export async function deleteMyAccount() {
+  const response = await apiFetch<ApiEnvelope<{ success: boolean }>>('/api/profile/me', {
+    method: 'DELETE',
+    body: JSON.stringify({ confirm: true }),
+  });
+
+  return response.data;
+}
+
 export async function upsertMyProfile(profile: Partial<ApiProfile>) {
   const response = await apiFetch<ApiEnvelope<ApiProfile>>('/api/profile/me', {
     method: 'PUT',
