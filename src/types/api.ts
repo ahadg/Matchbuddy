@@ -6,6 +6,10 @@ export type ApiEnvelope<T> = {
 
 export type ApiWaveStatus = 'none' | 'pending' | 'received' | 'mutual';
 export type ApiListingRequestStatus = 'none' | 'pending' | 'approved' | 'declined' | 'cancelled';
+export type ApiReportCategory = 'harassment' | 'spam' | 'hate' | 'sexual' | 'violence' | 'scam' | 'unsafe' | 'other';
+export type ApiMutationSuccess = {
+  success: boolean;
+};
 
 export type ApiFixture = {
   id: string;

@@ -1,14 +1,15 @@
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, TextInput, View } from 'react-native';
 
 import { ActionButton, MatchText, SurfaceCard } from '@/components/matchbuddy/ui';
+import { reportCategoryOptions } from '@/constants/safety';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { ApiConfigurationError, getListingById, requestListingSpot } from '@/lib/api';
+import { ApiConfigurationError, getListingById, reportListing, requestListingSpot } from '@/lib/api';
 import { useDiscoveryStore } from '@/stores/discovery-store';
 import { useSocialStore } from '@/stores/social-store';
-import type { ApiListingDetail, ApiListingRequestStatus } from '@/types/api';
+import type { ApiListingDetail, ApiListingRequestStatus, ApiReportCategory } from '@/types/api';
 
 export default function ListingDetailScreen() {
   const router = useRouter();
@@ -21,6 +22,12 @@ export default function ListingDetailScreen() {
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<null | string>(null);
   const [requestingSpot, setRequestingSpot] = useState(false);
+  const [showReportTools, setShowReportTools] = useState(false);
+  const [reportCategory, setReportCategory] = useState<ApiReportCategory>('unsafe');
+  const [reportDetails, setReportDetails] = useState('');
+  const [reportingListing, setReportingListing] = useState(false);
+  const [reportFeedback, setReportFeedback] = useState<null | string>(null);
+  const [reportError, setReportError] = useState<null | string>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -132,6 +139,29 @@ export default function ListingDetailScreen() {
       setLoadError(error instanceof Error ? error.message : 'Could not request this room.');
     } finally {
       setRequestingSpot(false);
+    }
+  }
+
+  async function handleReportListing() {
+    if (!listing || reportingListing) {
+      return;
+    }
+
+    setReportingListing(true);
+    setReportError(null);
+    setReportFeedback(null);
+
+    try {
+      await reportListing(listing.id, {
+        category: reportCategory,
+        details: reportDetails.trim() || undefined,
+      });
+      setReportDetails('');
+      setReportFeedback('Thanks. Your report was sent and the listing will be reviewed.');
+    } catch (error) {
+      setReportError(error instanceof Error ? error.message : 'Could not report this listing.');
+    } finally {
+      setReportingListing(false);
     }
   }
 
@@ -291,6 +321,93 @@ export default function ListingDetailScreen() {
                   <MatchText tone="muted" style={{ fontSize: 13 }}>
                     Venue: {listing.venue}
                   </MatchText>
+                </SurfaceCard>
+
+                <SurfaceCard
+                  tone="danger"
+                  style={{
+                    gap: 14,
+                    borderRadius: 26,
+                    padding: 18,
+                  }}>
+                  <View style={{ gap: 6 }}>
+                    <MatchText variant="title" style={{ fontSize: 20, lineHeight: 22 }}>
+                      Need help with this listing?
+                    </MatchText>
+                    <MatchText tone="muted" style={{ fontSize: 14, lineHeight: 20 }}>
+                      Report scams, harassment, unsafe meetup details, or anything that feels off before you request a spot.
+                    </MatchText>
+                  </View>
+
+                  <ActionButton
+                    tone={showReportTools ? 'danger' : 'default'}
+                    onPress={() => {
+                      setShowReportTools((current) => !current);
+                      setReportError(null);
+                      setReportFeedback(null);
+                    }}>
+                    {showReportTools ? 'Hide reporting tools' : 'Report this listing'}
+                  </ActionButton>
+
+                  {showReportTools ? (
+                    <>
+                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+                        {reportCategoryOptions.map((option) => {
+                          const selected = reportCategory === option.value;
+
+                          return (
+                            <Pressable
+                              key={option.value}
+                              onPress={() => setReportCategory(option.value)}
+                              style={({ pressed }) => ({
+                                paddingHorizontal: 14,
+                                paddingVertical: 10,
+                                borderRadius: 999,
+                                borderWidth: 1,
+                                borderColor: selected ? theme.danger : 'rgba(255,255,255,0.10)',
+                                backgroundColor: selected ? 'rgba(185, 131, 255, 0.14)' : '#11182A',
+                                opacity: pressed ? 0.92 : 1,
+                              })}>
+                              <MatchText tone={selected ? 'danger' : 'default'}>{option.label}</MatchText>
+                            </Pressable>
+                          );
+                        })}
+                      </View>
+
+                      <View
+                        style={{
+                          borderRadius: 20,
+                          borderWidth: 1,
+                          borderColor: 'rgba(255,255,255,0.10)',
+                          backgroundColor: '#11182A',
+                          paddingHorizontal: 14,
+                          paddingVertical: 12,
+                        }}>
+                        <TextInput
+                          multiline
+                          value={reportDetails}
+                          onChangeText={setReportDetails}
+                          placeholder="Optional notes for the safety team"
+                          placeholderTextColor="rgba(246,240,238,0.42)"
+                          selectionColor={theme.accent}
+                          style={{
+                            minHeight: 72,
+                            color: theme.text,
+                            fontSize: 14,
+                            lineHeight: 20,
+                            textAlignVertical: 'top',
+                          }}
+                        />
+                      </View>
+
+                      <ActionButton tone="warm" onPress={() => handleReportListing().catch(() => undefined)}>
+                        {reportingListing ? 'Sending…' : 'Send report'}
+                      </ActionButton>
+                    </>
+                  ) : null}
+
+                  {reportError ? <MatchText tone="warm">{reportError}</MatchText> : null}
+                  {reportFeedback ? <MatchText tone="accent">{reportFeedback}</MatchText> : null}
                 </SurfaceCard>
 
                 {loadError ? <MatchText tone="warm">{loadError}</MatchText> : null}

@@ -1,6 +1,7 @@
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, TextInput, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Avatar, MatchText, SurfaceCard } from '@/components/matchbuddy/ui';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
@@ -14,6 +15,7 @@ import type { ApiDirectThreadMessages } from '@/types/api';
 export default function DirectChatScreen() {
   const router = useRouter();
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
   const { threadId } = useLocalSearchParams<{ threadId: string }>();
   const profileId = useProfileStore((state) => state.profile?.id ?? null);
   const bumpSocialRevision = useSocialStore((state) => state.bumpRevision);
@@ -139,11 +141,11 @@ export default function DirectChatScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <View style={{ flex: 1 }}>
           <ScrollView
-            contentInsetAdjustmentBehavior="automatic"
+            contentInsetAdjustmentBehavior="never"
             style={{ flex: 1 }}
             contentContainerStyle={{
               paddingHorizontal: Spacing.three,
-              paddingTop: Spacing.three,
+              paddingTop: insets.top + Spacing.two,
               paddingBottom: BottomTabInset + 116,
             }}>
             <View style={{ width: '100%', maxWidth: MaxContentWidth, alignSelf: 'center', gap: 16 }}>
@@ -168,13 +170,41 @@ export default function DirectChatScreen() {
                     size={48}
                   />
                 ) : null}
-                <View style={{ flex: 1, gap: 2 }}>
-                  <MatchText variant="title" style={{ fontSize: 24, lineHeight: 26 }}>
+                <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+                  <MatchText
+                    variant="title"
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                    style={{ fontSize: 22, lineHeight: 24 }}>
                     {conversation?.thread.otherDisplayName ?? 'Chat'}
                   </MatchText>
-                  <MatchText tone="muted">
+                  <MatchText numberOfLines={1} ellipsizeMode="tail" tone="muted">
                     {conversation?.thread.fixtureSummary ?? 'Mutual wave'} {conversation?.thread.fixtureStage ? `· ${conversation.thread.fixtureStage}` : ''}
                   </MatchText>
+                  {conversation?.thread.otherProfileId ? (
+                    <Pressable
+                      onPress={() =>
+                        router.push({
+                          pathname: '/fan/[fanId]',
+                          params: { fanId: conversation.thread.otherProfileId },
+                        })
+                      }
+                      style={({ pressed }) => ({
+                        alignSelf: 'flex-start',
+                        marginTop: 6,
+                        paddingHorizontal: 12,
+                        paddingVertical: 7,
+                        borderRadius: 999,
+                        borderWidth: 1,
+                        borderColor: theme.border,
+                        backgroundColor: theme.backgroundElement,
+                        opacity: pressed ? 0.92 : 1,
+                      })}>
+                      <MatchText variant="caption" tone="accent">
+                        View profile & safety
+                      </MatchText>
+                    </Pressable>
+                  ) : null}
                 </View>
               </View>
 

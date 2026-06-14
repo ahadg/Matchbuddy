@@ -1,6 +1,6 @@
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, TextInput, View } from 'react-native';
 
 import {
   ActionButton,
@@ -15,13 +15,14 @@ import {
   SurfaceCard,
   TopBar,
 } from '@/components/matchbuddy/ui';
+import { reportCategoryOptions } from '@/constants/safety';
 import { MaxContentWidth, Radii, Spacing } from '@/constants/theme';
 import { fansById, worldCupFixtures } from '@/data/matchbuddy-data';
 import { useTheme } from '@/hooks/use-theme';
-import { ApiConfigurationError, getFanById, rateFan, sendWave } from '@/lib/api';
+import { ApiConfigurationError, blockFan, getFanById, rateFan, reportFan, sendWave } from '@/lib/api';
 import { useDiscoveryStore } from '@/stores/discovery-store';
 import { useSocialStore } from '@/stores/social-store';
-import type { ApiFanDetail, ApiWaveStatus } from '@/types/api';
+import type { ApiFanDetail, ApiReportCategory, ApiWaveStatus } from '@/types/api';
 import type { FanProfile } from '@/types/matchbuddy';
 import { formatDistance, setupSummary } from '@/utils/formatters';
 
@@ -40,6 +41,13 @@ export default function FanDetailScreen() {
   const [ratingError, setRatingError] = useState<null | string>(null);
   const [sendingWave, setSendingWave] = useState(false);
   const [submittingRating, setSubmittingRating] = useState(false);
+  const [showSafetyTools, setShowSafetyTools] = useState(false);
+  const [reportCategory, setReportCategory] = useState<ApiReportCategory>('unsafe');
+  const [safetyDetails, setSafetyDetails] = useState('');
+  const [safetyError, setSafetyError] = useState<null | string>(null);
+  const [safetySuccess, setSafetySuccess] = useState<null | string>(null);
+  const [reportingFan, setReportingFan] = useState(false);
+  const [blockingFan, setBlockingFan] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -186,6 +194,59 @@ export default function FanDetailScreen() {
     }
   }
 
+  async function handleReportFan() {
+    if (!remoteFan || reportingFan) {
+      return;
+    }
+
+    setReportingFan(true);
+    setSafetyError(null);
+    setSafetySuccess(null);
+
+    try {
+      await reportFan(remoteFan.id, {
+        category: reportCategory,
+        details: safetyDetails.trim() || undefined,
+      });
+      setSafetyDetails('');
+      setSafetySuccess('Thanks. We saved your report and the team will review it.');
+    } catch (error) {
+      setSafetyError(error instanceof Error ? error.message : 'Could not send your report.');
+    } finally {
+      setReportingFan(false);
+    }
+  }
+
+  async function handleBlockFan() {
+    if (!remoteFan || blockingFan) {
+      return;
+    }
+
+    setBlockingFan(true);
+    setSafetyError(null);
+    setSafetySuccess(null);
+
+    try {
+      await blockFan(remoteFan.id, safetyDetails.trim() || undefined);
+      bumpSocialRevision();
+      router.replace('/fans');
+    } catch (error) {
+      setSafetyError(error instanceof Error ? error.message : 'Could not block this fan.');
+      setBlockingFan(false);
+    }
+  }
+
+  function handleSafetyToggle() {
+    if (!remoteFan) {
+      setSafetyError('Safety tools unlock once this live profile finishes loading.');
+      return;
+    }
+
+    setSafetyError(null);
+    setSafetySuccess(null);
+    setShowSafetyTools((current) => !current);
+  }
+
   return (
     <>
       <Stack.Screen options={{ title: fan?.name ?? 'Fan profile' }} />
@@ -303,11 +364,92 @@ export default function FanDetailScreen() {
                     </ActionButton>
                   </View>
                   <View style={{ flex: 1 }}>
-                    <ActionButton>Block or report</ActionButton>
+                    <ActionButton tone={showSafetyTools ? 'danger' : remoteFan ? 'default' : 'muted'} onPress={handleSafetyToggle}>
+                      {showSafetyTools ? 'Hide safety tools' : 'Block or report'}
+                    </ActionButton>
                   </View>
                 </View>
                 {actionError ? <MatchText tone="warm">{actionError}</MatchText> : null}
+                {safetyError ? <MatchText tone="warm">{safetyError}</MatchText> : null}
               </SurfaceCard>
+
+              {showSafetyTools && remoteFan ? (
+                <SurfaceCard tone="danger" style={{ gap: Spacing.three }}>
+                  <View style={{ gap: 6 }}>
+                    <MatchText variant="subtitle">Safety tools</MatchText>
+                    <MatchText tone="muted">
+                      Report abusive behavior, scams, or unsafe meetup vibes. Blocking removes this fan from nearby discovery and chat access.
+                    </MatchText>
+                  </View>
+
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two }}>
+                    {reportCategoryOptions.map((option) => {
+                      const selected = reportCategory === option.value;
+
+                      return (
+                        <Pressable
+                          key={option.value}
+                          onPress={() => setReportCategory(option.value)}
+                          style={({ pressed }) => ({
+                            paddingHorizontal: 14,
+                            paddingVertical: 10,
+                            borderRadius: 999,
+                            borderWidth: 1,
+                            borderColor: selected ? theme.danger : theme.border,
+                            backgroundColor: selected ? theme.dangerSoft : theme.backgroundElement,
+                            opacity: pressed ? 0.92 : 1,
+                          })}>
+                          <MatchText tone={selected ? 'danger' : 'default'}>{option.label}</MatchText>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+
+                  <View
+                    style={{
+                      borderRadius: Radii.large,
+                      borderWidth: 1,
+                      borderColor: theme.border,
+                      backgroundColor: theme.backgroundElement,
+                      paddingHorizontal: 14,
+                      paddingVertical: 12,
+                    }}>
+                    <TextInput
+                      multiline
+                      value={safetyDetails}
+                      onChangeText={setSafetyDetails}
+                      placeholder="Optional details for the safety team or your block note"
+                      placeholderTextColor={theme.textSecondary}
+                      selectionColor={theme.accent}
+                      style={{
+                        minHeight: 64,
+                        color: theme.text,
+                        fontSize: 14,
+                        lineHeight: 20,
+                        textAlignVertical: 'top',
+                      }}
+                    />
+                  </View>
+
+                  <View style={{ flexDirection: 'row', gap: Spacing.two }}>
+                    <View style={{ flex: 1 }}>
+                      <ActionButton tone="warm" onPress={() => handleReportFan().catch(() => undefined)}>
+                        {reportingFan ? 'Sending…' : 'Send report'}
+                      </ActionButton>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <ActionButton tone="danger" onPress={() => handleBlockFan().catch(() => undefined)}>
+                        {blockingFan ? 'Blocking…' : 'Block fan'}
+                      </ActionButton>
+                    </View>
+                  </View>
+
+                  {safetySuccess ? <MatchText tone="accent">{safetySuccess}</MatchText> : null}
+                  <MatchText tone="muted">
+                    Reviews happen after submission. For urgent safety issues, block immediately so this fan disappears from your experience.
+                  </MatchText>
+                </SurfaceCard>
+              ) : null}
 
               {remoteFan ? (
                 <SurfaceCard tone="warm" style={{ gap: Spacing.three }}>
@@ -386,7 +528,7 @@ export default function FanDetailScreen() {
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: Spacing.two }}>
                   <QuickActionCard title="Wave stays private" subtitle="No name shown on the first tap" tone="accent" />
                   <QuickActionCard title="Mutual wave opens chat" subtitle="Message only after both say yes" tone="warm" />
-                  <QuickActionCard title="Safety tools stay live" subtitle="Block and report from any chat" tone="danger" />
+                  <QuickActionCard title="Safety tools stay live" subtitle="Open profile anytime to block or report" tone="danger" />
                 </ScrollView>
               </View>
             </>

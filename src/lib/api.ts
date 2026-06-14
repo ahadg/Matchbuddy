@@ -13,9 +13,11 @@ import type {
   ApiListingDetail,
   ApiListingMessage,
   ApiListingRoomMessages,
+  ApiMutationSuccess,
   ApiNearbyFan,
   ApiNotificationsFeed,
   ApiProfile,
+  ApiReportCategory,
   ApiWaveResult,
 } from '@/types/api';
 import type { WatchingVibe } from '@/types/matchbuddy';
@@ -206,6 +208,30 @@ export async function rateFan(fanId: string, score: number) {
   return response.data;
 }
 
+export async function blockFan(fanId: string, reason?: string) {
+  const response = await apiFetch<ApiEnvelope<ApiMutationSuccess>>(`/api/fans/${fanId}/block`, {
+    method: 'POST',
+    body: JSON.stringify({ reason }),
+  });
+
+  return response.data;
+}
+
+export async function reportFan(
+  fanId: string,
+  input: {
+    category: ApiReportCategory;
+    details?: string;
+  },
+) {
+  const response = await apiFetch<ApiEnvelope<ApiMutationSuccess>>(`/api/fans/${fanId}/report`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+
+  return response.data;
+}
+
 export async function getListings(params: {
   radiusKm?: number;
   latitude?: number;
@@ -255,6 +281,21 @@ export async function requestListingSpot(listingId: string, message?: string) {
   const response = await apiFetch<ApiEnvelope<ApiJoinRequest>>(`/api/listings/${listingId}/join-requests`, {
     method: 'POST',
     body: JSON.stringify({ message }),
+  });
+
+  return response.data;
+}
+
+export async function reportListing(
+  listingId: string,
+  input: {
+    category: ApiReportCategory;
+    details?: string;
+  },
+) {
+  const response = await apiFetch<ApiEnvelope<ApiMutationSuccess>>(`/api/listings/${listingId}/report`, {
+    method: 'POST',
+    body: JSON.stringify(input),
   });
 
   return response.data;

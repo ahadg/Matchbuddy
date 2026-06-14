@@ -14,12 +14,17 @@ export default function SignInScreen() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const authConfigured = appConfig.api.enabled && appConfig.supabase.enabled;
+  const reviewEmail = appConfig.reviewAccess.email;
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState<null | string>(null);
   const loading = useAuthStore((state) => state.loading);
   const pendingEmail = useAuthStore((state) => state.pendingEmail);
   const session = useAuthStore((state) => state.session);
   const sendOtp = useAuthStore((state) => state.sendOtp);
+  const signInWithPassword = useAuthStore((state) => state.signInWithPassword);
+  const normalizedEmail = email.trim().toLowerCase();
+  const useReviewPasswordFlow = appConfig.reviewAccess.enabled && normalizedEmail === reviewEmail;
 
   if (!authConfigured) {
     return (
@@ -60,7 +65,9 @@ export default function SignInScreen() {
               Sign in to MatchBuddy
             </MatchText>
             <MatchText tone="muted" style={{ fontSize: 15, lineHeight: 21 }}>
-              Enter your email and we&apos;ll send a one-time code through email. New users are created automatically.
+              {useReviewPasswordFlow
+                ? 'This review account uses password sign-in so Google Play can access the app without email OTP.'
+                : 'Enter your email and we&apos;ll send a one-time code through email. New users are created automatically.'}
             </MatchText>
           </View>
 
@@ -88,9 +95,42 @@ export default function SignInScreen() {
                     fontSize: 16,
                   }}
                   value={email}
-                  onChangeText={setEmail}
+                  onChangeText={(value) => {
+                    setEmail(value);
+                    if (value.trim().toLowerCase() !== reviewEmail) {
+                      setPassword('');
+                    }
+                  }}
                 />
               </View>
+
+              {useReviewPasswordFlow ? (
+                <View style={{ gap: 8 }}>
+                  <MatchText variant="label" tone="muted">
+                    Password
+                  </MatchText>
+                  <TextInput
+                    autoCapitalize="none"
+                    autoComplete="password"
+                    placeholder="Enter review password"
+                    placeholderTextColor="rgba(232, 238, 245, 0.45)"
+                    secureTextEntry
+                    selectionColor={theme.accent}
+                    style={{
+                      borderRadius: 18,
+                      borderWidth: 1,
+                      borderColor: 'rgba(255,255,255,0.10)',
+                      backgroundColor: 'rgba(255,255,255,0.04)',
+                      color: theme.text,
+                      paddingHorizontal: 16,
+                      paddingVertical: 14,
+                      fontSize: 16,
+                    }}
+                    value={password}
+                    onChangeText={setPassword}
+                  />
+                </View>
+              ) : null}
 
               {error ? (
                 <MatchText tone="warm" style={{ fontSize: 14 }}>
@@ -100,7 +140,9 @@ export default function SignInScreen() {
 
               <Pressable
                 onPress={async () => {
-                  const result = await sendOtp(email);
+                  const result = useReviewPasswordFlow
+                    ? await signInWithPassword(email, password)
+                    : await sendOtp(email);
 
                   if (result.error) {
                     setError(result.error);
@@ -108,6 +150,11 @@ export default function SignInScreen() {
                   }
 
                   setError(null);
+                  if (useReviewPasswordFlow) {
+                    router.replace('/(tabs)/(home)');
+                    return;
+                  }
+
                   router.push('/verify-otp');
                 }}
                 style={({ pressed }) => ({
@@ -122,12 +169,12 @@ export default function SignInScreen() {
                   <ActivityIndicator color="#111722" />
                 ) : (
                   <MatchText variant="title" style={{ color: '#111722', fontSize: 18, lineHeight: 20 }}>
-                    Send code
+                    {useReviewPasswordFlow ? 'Sign in' : 'Send code'}
                   </MatchText>
                 )}
               </Pressable>
 
-              {pendingEmail ? (
+              {pendingEmail && !useReviewPasswordFlow ? (
                 <MatchText tone="muted" style={{ fontSize: 14 }}>
                   Last code sent to {pendingEmail}
                 </MatchText>

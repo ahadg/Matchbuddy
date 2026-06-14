@@ -19,6 +19,7 @@ type AuthState = {
   pendingEmail: string;
   bootstrap: () => Promise<void>;
   sendOtp: (email: string) => Promise<AuthResult>;
+  signInWithPassword: (email: string, password: string) => Promise<AuthResult>;
   verifyOtp: (token: string) => Promise<AuthResult>;
   signOut: () => Promise<void>;
   clearPendingEmail: () => void;
@@ -107,6 +108,45 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
     set({
       loading: false,
       pendingEmail: normalizedEmail,
+    });
+
+    return { error: null };
+  },
+  signInWithPassword: async (email, password) => {
+    if (!appConfig.supabase.enabled) {
+      return { error: 'Supabase is not configured yet. Add the Expo public Supabase env vars first.' };
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+
+    if (!normalizedEmail) {
+      return { error: 'Enter an email address first.' };
+    }
+
+    if (!password.trim()) {
+      return { error: 'Enter the password for this review account.' };
+    }
+
+    set({ loading: true });
+
+    const {
+      data: { session },
+      error,
+    } = await supabase.auth.signInWithPassword({
+      email: normalizedEmail,
+      password,
+    });
+
+    set({ loading: false });
+
+    if (error) {
+      return { error: error.message };
+    }
+
+    set({
+      session,
+      user: session?.user ?? null,
+      pendingEmail: '',
     });
 
     return { error: null };
