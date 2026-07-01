@@ -419,10 +419,10 @@ export default function HomeScreen() {
         style={{ flex: 1, backgroundColor: theme.background }}
         contentContainerStyle={{
           paddingHorizontal: Spacing.three,
-          paddingTop: insets.top + 10,
+          paddingTop: insets.top + 8,
           paddingBottom: BottomTabInset + 24,
         }}>
-        <View style={{ width: '100%', maxWidth: MaxContentWidth, alignSelf: 'center', gap: 18 }}>
+        <View style={{ width: '100%', maxWidth: MaxContentWidth, alignSelf: 'center', gap: 16 }}>
           <View
             style={{
               position: 'absolute',
@@ -454,10 +454,10 @@ export default function HomeScreen() {
               gap: Spacing.three,
             }}>
             <View style={{ gap: 4 }}>
-              <MatchText variant="label" tone="muted">
+              <MatchText variant="label" tone="muted" style={{ fontSize: 10, lineHeight: 13 }}>
                 Matchday · Jun
               </MatchText>
-              <MatchText variant="hero" style={{ fontSize: 34, lineHeight: 36 }}>
+              <MatchText variant="hero" style={{ fontSize: 29, lineHeight: 31 }}>
                 Fixtures
               </MatchText>
             </View>
@@ -547,11 +547,11 @@ export default function HomeScreen() {
               style={{
                 borderRadius: 24,
                 overflow: 'hidden',
-                padding: 14,
-                minHeight: 148,
-                backgroundColor: '#1A2032',
+                padding: 16,
+                minHeight: 134,
+                backgroundColor: '#171D30',
                 borderWidth: 1,
-                borderColor: 'rgba(190,255,105,0.55)',
+                borderColor: 'rgba(190,255,105,0.36)',
               }}>
               <View
                 style={{
@@ -593,9 +593,9 @@ export default function HomeScreen() {
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
                   <View
                     style={{
-                      width: 64,
-                      height: 64,
-                      borderRadius: 20,
+                      width: 58,
+                      height: 58,
+                      borderRadius: 18,
                       backgroundColor: '#66D8FF',
                       alignItems: 'center',
                       justifyContent: 'center',
@@ -603,7 +603,7 @@ export default function HomeScreen() {
                     <MatchSymbol
                       name={{ ios: 'bolt.fill', android: 'bolt', web: 'bolt' }}
                       color="#0C1320"
-                      size={30}
+                      size={26}
                     />
                     <View
                       style={{
@@ -621,14 +621,14 @@ export default function HomeScreen() {
                   </View>
 
                   <View style={{ flex: 1, gap: 3 }}>
-                    <MatchText variant="title" style={{ fontSize: 23, lineHeight: 26 }}>
+                    <MatchText variant="title" style={{ fontSize: 18, lineHeight: 22 }}>
                       Match Day Mode
                     </MatchText>
                     <MatchText
                       style={{
                         color: 'rgba(235,237,244,0.72)',
-                        fontSize: 14,
-                        lineHeight: 20,
+                        fontSize: 13,
+                        lineHeight: 18,
                       }}>
                       {heroFixture
                         ? `${matchDayEnabled ? 'Visible for' : 'Ready for'} ${heroFixture.homeCode}-${heroFixture.awayCode} · ${formatTimeUntil(heroFixture.kickoffAt)}`
@@ -646,7 +646,7 @@ export default function HomeScreen() {
                 />
               </View>
 
-              <View style={{ marginTop: 14, flexDirection: 'row', gap: 10, flexWrap: 'wrap' }}>
+              <View style={{ marginTop: 12, flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
                 <MetaPill
                   label={
                     heroFixture
@@ -682,8 +682,8 @@ export default function HomeScreen() {
               flexWrap: 'wrap',
             }}>
             <View style={{ gap: 2, flex: 1, minWidth: 0 }}>
-              <MatchText variant="title" style={{ fontSize: 24, lineHeight: 26 }}>
-                World Cup 2026
+              <MatchText variant="title" style={{ fontSize: 20, lineHeight: 22 }}>
+                Upcoming fixtures
               </MatchText>
               <MatchText tone="muted" style={{ fontSize: 13 }}>
                 {normalizedSearchQuery
@@ -693,8 +693,8 @@ export default function HomeScreen() {
             </View>
             <View
               style={{
-                paddingHorizontal: 12,
-                paddingVertical: 8,
+                paddingHorizontal: 11,
+                paddingVertical: 7,
                 borderRadius: 999,
                 backgroundColor: 'rgba(160,255,97,0.10)',
                 borderWidth: 1,
@@ -705,7 +705,7 @@ export default function HomeScreen() {
               <MatchText
                 variant="caption"
                 tone="accent"
-                style={{ fontSize: 12, textAlign: 'center' }}>
+                style={{ fontSize: 11, textAlign: 'center', fontVariant: ['tabular-nums'] }}>
                 {filteredFixtures.length
                   ? `${Math.min(visibleFixtures.length, filteredFixtures.length)} / ${filteredFixtures.length}`
                   : fixtures.length
@@ -741,7 +741,7 @@ export default function HomeScreen() {
             </SurfaceCard>
           ) : null}
 
-          <View style={{ gap: 16 }}>
+          <View style={{ gap: 14 }}>
             {cards.map((fixture) => (
               <Pressable
                 key={fixture.id}
@@ -754,7 +754,7 @@ export default function HomeScreen() {
                   style={{
                     padding: 0,
                     overflow: 'hidden',
-                    borderRadius: 28,
+                    borderRadius: 24,
                     backgroundColor: '#151B2D',
                     borderColor: 'rgba(255,255,255,0.10)',
                   }}>
@@ -783,8 +783,8 @@ export default function HomeScreen() {
 
                   <View
                     style={{
-                      paddingHorizontal: 16,
-                      paddingVertical: 12,
+                      paddingHorizontal: 15,
+                      paddingVertical: 10,
                       backgroundColor: fixture.hot ? 'rgba(255, 88, 120, 0.18)' : 'rgba(255,255,255,0.04)',
                       flexDirection: 'row',
                       alignItems: 'center',
@@ -799,7 +799,7 @@ export default function HomeScreen() {
                       variant="caption"
                       style={{
                         color: fixture.hot ? '#FF5E78' : 'rgba(235,238,244,0.72)',
-                        fontSize: 13,
+                        fontSize: 12,
                         fontWeight: '800',
                       }}>
                       {fixture.badge.toUpperCase()}
@@ -818,9 +818,9 @@ export default function HomeScreen() {
                       />
                       <MatchText
                         variant="caption"
-                        style={{
+                      style={{
                           color: fixture.hot ? '#FF8B63' : 'rgba(235,238,244,0.72)',
-                          fontSize: 13,
+                          fontSize: 12,
                           fontWeight: '700',
                         }}>
                         {fixture.badgeTrend}
@@ -828,7 +828,7 @@ export default function HomeScreen() {
                     </View>
                   </View>
 
-                  <View style={{ padding: 16, gap: 14 }}>
+                  <View style={{ padding: 15, gap: 12 }}>
                     <View
                       style={{
                         flexDirection: 'row',
@@ -839,7 +839,7 @@ export default function HomeScreen() {
                       <MatchText
                         variant="label"
                         tone="muted"
-                        style={{ fontSize: 14, color: 'rgba(235,238,244,0.72)' }}>
+                        style={{ fontSize: 12, color: 'rgba(235,238,244,0.72)' }}>
                         {fixture.stage}
                       </MatchText>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
@@ -848,7 +848,7 @@ export default function HomeScreen() {
                           color="rgba(235,238,244,0.72)"
                           size={15}
                         />
-                        <MatchText tone="muted" style={{ fontSize: 14, color: 'rgba(235,238,244,0.8)' }}>
+                        <MatchText tone="muted" style={{ fontSize: 13, color: 'rgba(235,238,244,0.8)' }}>
                           {fixture.timeLabel}
                         </MatchText>
                       </View>
@@ -859,14 +859,14 @@ export default function HomeScreen() {
                         flexDirection: 'row',
                         alignItems: 'center',
                         justifyContent: 'space-between',
-                        gap: 14,
+                        gap: 10,
                       }}>
                       <TeamBadge
                         emblem={flagForCode(fixture.homeCode)}
                         code={fixture.homeCode}
                         fallbackLabel={fixture.homeTeam}
                       />
-                      <MatchText variant="subtitle" tone="muted" style={{ fontSize: 18 }}>
+                      <MatchText variant="subtitle" tone="muted" style={{ fontSize: 15, lineHeight: 18 }}>
                         VS
                       </MatchText>
                       <TeamBadge
@@ -876,7 +876,7 @@ export default function HomeScreen() {
                       />
                     </View>
 
-                    <MatchText tone="muted" style={{ fontSize: 14, lineHeight: 20 }}>
+                    <MatchText tone="muted" style={{ fontSize: 13, lineHeight: 18 }}>
                       {fixture.highlight}
                     </MatchText>
 
@@ -895,14 +895,14 @@ export default function HomeScreen() {
                           color="rgba(235,238,244,0.72)"
                           size={15}
                         />
-                        <MatchText tone="muted" style={{ fontSize: 14 }} numberOfLines={1}>
+                        <MatchText tone="muted" style={{ fontSize: 13 }} numberOfLines={1}>
                           {fixture.venue}
                         </MatchText>
                       </View>
                       <View
                         style={{
-                          paddingHorizontal: 10,
-                          paddingVertical: 7,
+                          paddingHorizontal: 9,
+                          paddingVertical: 6,
                           borderRadius: 999,
                           backgroundColor: 'rgba(160,255,97,0.10)',
                           flexDirection: 'row',
@@ -914,7 +914,7 @@ export default function HomeScreen() {
                           color={theme.accent}
                           size={15}
                         />
-                        <MatchText tone="accent" style={{ fontSize: 13, fontWeight: '800' }}>
+                        <MatchText tone="accent" style={{ fontSize: 12, fontWeight: '800' }}>
                           {fixture.nearbyFans} nearby
                         </MatchText>
                       </View>
@@ -957,20 +957,20 @@ function ModeToggle({
     <Pressable
       onPress={loading ? undefined : onPress}
       style={({ pressed }) => ({
-        width: 82,
-        height: 50,
+        width: 72,
+        height: 44,
         borderRadius: 999,
         backgroundColor: enabled ? '#9BFF62' : 'rgba(255,255,255,0.08)',
         borderWidth: 1,
         borderColor: enabled ? 'rgba(184,255,97,0.32)' : 'rgba(255,255,255,0.08)',
         justifyContent: 'center',
-        paddingHorizontal: 6,
+        paddingHorizontal: 5,
         opacity: pressed || loading ? 0.94 : 1,
       })}>
       <View
         style={{
-          width: 38,
-          height: 38,
+          width: 34,
+          height: 34,
           borderRadius: 999,
           marginLeft: enabled ? 'auto' : 0,
           backgroundColor: enabled ? '#101624' : 'rgba(255,255,255,0.16)',
@@ -1001,8 +1001,8 @@ function MetaPill({ label, accent = false }: { label: string; accent?: boolean }
   return (
     <View
       style={{
-        paddingHorizontal: 12,
-        paddingVertical: 8,
+        paddingHorizontal: 11,
+        paddingVertical: 7,
         borderRadius: 999,
         backgroundColor: accent ? 'rgba(160,255,97,0.12)' : 'rgba(255,255,255,0.06)',
         borderWidth: 1,
@@ -1011,7 +1011,7 @@ function MetaPill({ label, accent = false }: { label: string; accent?: boolean }
       <MatchText
         variant="caption"
         tone={accent ? 'accent' : 'default'}
-        style={{ fontSize: 12, fontWeight: '700' }}>
+        style={{ fontSize: 11, fontWeight: '700' }}>
         {label}
       </MatchText>
     </View>
@@ -1035,9 +1035,9 @@ function CircleAction({
       hitSlop={6}
       onPress={onPress}
       style={({ pressed }) => ({
-        width: 64,
-        height: 64,
-        borderRadius: 22,
+        width: 56,
+        height: 56,
+        borderRadius: 20,
         borderWidth: 1,
         borderColor: 'rgba(255,255,255,0.10)',
         backgroundColor: pressed ? 'rgba(255,255,255,0.09)' : 'rgba(255,255,255,0.05)',
@@ -1045,24 +1045,24 @@ function CircleAction({
         justifyContent: 'center',
         opacity: pressed ? 0.92 : 1,
       })}>
-      <MatchSymbol name={symbolName} size={23} />
+      <MatchSymbol name={symbolName} size={20} />
       {badgeLabel ? (
         <View
           style={{
             position: 'absolute',
-            top: 10,
-            right: 8,
-            minWidth: 20,
-            height: 20,
+            top: 8,
+            right: 7,
+            minWidth: 18,
+            height: 18,
             borderRadius: 999,
-            paddingHorizontal: 5,
+            paddingHorizontal: 4,
             backgroundColor: '#FF5E78',
             alignItems: 'center',
             justifyContent: 'center',
           }}>
           <MatchText
             variant="caption"
-            style={{ color: '#FFF6F8', fontSize: 10, lineHeight: 12, fontWeight: '800' }}>
+            style={{ color: '#FFF6F8', fontSize: 9, lineHeight: 11, fontWeight: '800' }}>
             {badgeLabel}
           </MatchText>
         </View>
@@ -1070,10 +1070,10 @@ function CircleAction({
         <View
           style={{
             position: 'absolute',
-            top: 15,
-            right: 15,
-            width: 11,
-            height: 11,
+            top: 13,
+            right: 13,
+            width: 10,
+            height: 10,
             borderRadius: 999,
             backgroundColor: '#FF5E78',
           }}
@@ -1093,12 +1093,12 @@ function TeamBadge({
   fallbackLabel: string;
 }) {
   return (
-    <View style={{ alignItems: 'center', gap: 10, flex: 1 }}>
+    <View style={{ alignItems: 'center', gap: 8, flex: 1 }}>
       <View
         style={{
-          width: 80,
-          height: 80,
-          borderRadius: 24,
+          width: 68,
+          height: 68,
+          borderRadius: 20,
           borderWidth: 1,
           borderColor: 'rgba(255,255,255,0.10)',
           backgroundColor: 'rgba(255,255,255,0.05)',
@@ -1107,18 +1107,18 @@ function TeamBadge({
           paddingHorizontal: 8,
         }}>
         {emblem ? (
-          <MatchText variant="hero" style={{ fontSize: 30, lineHeight: 32 }}>
+          <MatchText variant="hero" style={{ fontSize: 24, lineHeight: 26 }}>
             {emblem}
           </MatchText>
         ) : (
           <MatchText
             variant="title"
-            style={{ fontSize: code.length > 3 ? 18 : 24, lineHeight: 26, textAlign: 'center' }}>
+            style={{ fontSize: code.length > 3 ? 16 : 20, lineHeight: 22, textAlign: 'center' }}>
             {code}
           </MatchText>
         )}
       </View>
-      <MatchText variant="subtitle" style={{ fontSize: 16, letterSpacing: 1 }}>
+      <MatchText variant="subtitle" style={{ fontSize: 14, lineHeight: 16, letterSpacing: 0.8 }}>
         {code}
       </MatchText>
       {!emblem ? (

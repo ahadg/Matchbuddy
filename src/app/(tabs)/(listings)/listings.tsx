@@ -124,27 +124,29 @@ export default function ChatsScreen() {
           paddingTop: insets.top + Spacing.three,
           paddingBottom: BottomTabInset + 24,
         }}>
-        <View style={{ width: '100%', maxWidth: MaxContentWidth, alignSelf: 'center', gap: 16 }}>
+        <View style={{ width: '100%', maxWidth: MaxContentWidth, alignSelf: 'center', gap: 14 }}>
           <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: Spacing.three }}>
             <View style={{ gap: 4 }}>
-              <MatchText variant="label" tone="muted">
+              <MatchText variant="label" tone="muted" style={{ fontSize: 10, lineHeight: 13 }}>
                 Inbox
               </MatchText>
               <View style={{ flexDirection: 'row', alignItems: 'baseline', flexWrap: 'wrap', gap: 6 }}>
-                <MatchText variant="hero" style={{ fontSize: 34, lineHeight: 36 }}>
+                <MatchText variant="hero" style={{ fontSize: 29, lineHeight: 31 }}>
                   Waves
                 </MatchText>
-                <MatchText variant="hero" style={{ fontSize: 34, lineHeight: 36, color: '#FF8F61' }}>
+                <MatchText variant="hero" style={{ fontSize: 29, lineHeight: 31, color: '#FF8F61' }}>
                   & chats
                 </MatchText>
               </View>
             </View>
             <View
               style={{
-                width: 64,
-                height: 64,
+                width: 54,
+                height: 54,
                 borderRadius: 999,
-                backgroundColor: theme.accent,
+                backgroundColor: 'rgba(168,245,109,0.14)',
+                borderWidth: 1,
+                borderColor: 'rgba(168,245,109,0.24)',
                 alignItems: 'center',
                 justifyContent: 'center',
               }}>
@@ -158,7 +160,7 @@ export default function ChatsScreen() {
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}>
-                <MatchText variant="hero" style={{ color: '#0A0F17', fontSize: refreshing ? 14 : 20, lineHeight: refreshing ? 16 : 22 }}>
+                <MatchText variant="hero" style={{ color: theme.accent, fontSize: refreshing ? 13 : 18, lineHeight: refreshing ? 15 : 20 }}>
                   {refreshing ? '...' : '↻'}
                 </MatchText>
               </Pressable>
@@ -176,14 +178,14 @@ export default function ChatsScreen() {
             <SurfaceCard
               style={{
                 padding: 18,
-                borderRadius: 28,
+                borderRadius: 24,
                 backgroundColor: '#171D30',
                 borderColor: 'rgba(255,255,255,0.10)',
               }}>
-              <MatchText variant="title" style={{ fontSize: 22, lineHeight: 24 }}>
+              <MatchText variant="title" style={{ fontSize: 19, lineHeight: 21 }}>
                 No mutual waves yet
               </MatchText>
-              <MatchText tone="muted" style={{ fontSize: 14, lineHeight: 20 }}>
+              <MatchText tone="muted" style={{ fontSize: 13, lineHeight: 18 }}>
                 Start in Nearby, send a wave, and chats will unlock here after it is mutual.
               </MatchText>
             </SurfaceCard>
@@ -205,7 +207,7 @@ export default function ChatsScreen() {
 
           {hasLoadedInbox && additionalThreads.length > 0 ? <SectionLabel label="More mutual waves" /> : null}
           {hasLoadedInbox && additionalThreads.length > 0 ? (
-            <View style={{ gap: 16 }}>
+            <View style={{ gap: 14 }}>
               {additionalThreads.map((thread) => (
                 <Pressable
                   key={thread.id}
@@ -217,12 +219,12 @@ export default function ChatsScreen() {
                   <SurfaceCard
                     style={{
                       padding: 16,
-                      borderRadius: 24,
+                      borderRadius: 22,
                       backgroundColor: '#171D30',
                       borderColor: 'rgba(255,255,255,0.10)',
                     }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-                      <Avatar name={thread.otherDisplayName} imageUrl={thread.otherAvatarUrl} size={68} />
+                      <Avatar name={thread.otherDisplayName} imageUrl={thread.otherAvatarUrl} size={62} />
                       <View style={{ flex: 1, gap: 5 }}>
                         <View
                           style={{
@@ -232,14 +234,14 @@ export default function ChatsScreen() {
                             borderRadius: 999,
                             backgroundColor: 'rgba(160,255,97,0.14)',
                           }}>
-                          <MatchText tone="accent" style={{ fontSize: 11, fontWeight: '800' }}>
+                          <MatchText tone="accent" style={{ fontSize: 10, fontWeight: '800' }}>
                             Mutual wave
                           </MatchText>
                         </View>
-                        <MatchText variant="title" style={{ fontSize: 21, lineHeight: 23 }}>
+                        <MatchText variant="title" style={{ fontSize: 18, lineHeight: 20 }}>
                           {thread.otherDisplayName}
                         </MatchText>
-                        <MatchText tone="muted" style={{ fontSize: 14 }}>
+                        <MatchText tone="muted" style={{ fontSize: 13 }}>
                           {thread.lastMessage ?? `Unlocked for ${thread.fixtureSummary ?? 'match night'}`}
                         </MatchText>
                       </View>
@@ -255,37 +257,37 @@ export default function ChatsScreen() {
 
           {hasLoadedInbox ? <SectionLabel label="Anonymous waves" /> : null}
           {hasLoadedInbox ? (
-            <View style={{ gap: 16 }}>
+            <View style={{ gap: 14 }}>
               {incomingWaves.length ? (
                 incomingWaves.map((wave) => (
                   <SurfaceCard
                     key={wave.id}
                     style={{
                       padding: 16,
-                      borderRadius: 24,
+                      borderRadius: 22,
                       backgroundColor: '#171D30',
                       borderColor: 'rgba(255,255,255,0.10)',
                     }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
                       <View
                         style={{
-                          width: 74,
-                          height: 74,
-                          borderRadius: 22,
+                          width: 64,
+                          height: 64,
+                          borderRadius: 20,
                           backgroundColor: 'rgba(255, 92, 120, 0.18)',
                           alignItems: 'center',
                           justifyContent: 'center',
                         }}>
-                        <MatchText variant="title" style={{ color: '#FF647D', fontSize: 24, lineHeight: 26 }}>
+                        <MatchText variant="title" style={{ color: '#FF647D', fontSize: 20, lineHeight: 22 }}>
                           ☞
                         </MatchText>
                       </View>
 
                       <View style={{ flex: 1, gap: 5 }}>
-                        <MatchText variant="title" style={{ fontSize: 21, lineHeight: 23 }}>
+                        <MatchText variant="title" style={{ fontSize: 18, lineHeight: 20 }}>
                           Someone in {wave.fromNeighborhood}
                         </MatchText>
-                        <MatchText tone="muted" style={{ fontSize: 14 }}>
+                        <MatchText tone="muted" style={{ fontSize: 13 }}>
                           Waved you for {wave.fixtureSummary ?? 'tonight'}
                         </MatchText>
                       </View>
@@ -299,14 +301,14 @@ export default function ChatsScreen() {
                             handleIncomingWave(wave).catch(() => undefined);
                           }}
                           style={{
-                            width: 50,
-                            height: 50,
+                            width: 46,
+                            height: 46,
                             borderRadius: 999,
                             backgroundColor: '#FFAA4A',
                             alignItems: 'center',
                             justifyContent: 'center',
                           }}>
-                          <MatchText variant="title" style={{ color: '#141924', fontSize: 14, lineHeight: 16 }}>
+                          <MatchText variant="title" style={{ color: '#141924', fontSize: 12, lineHeight: 14 }}>
                             {activeWaveId === wave.id ? '...' : 'Back'}
                           </MatchText>
                         </Pressable>
@@ -318,7 +320,7 @@ export default function ChatsScreen() {
                 <SurfaceCard
                   style={{
                     padding: 16,
-                    borderRadius: 24,
+                    borderRadius: 22,
                     backgroundColor: '#171D30',
                     borderColor: 'rgba(255,255,255,0.10)',
                   }}>
@@ -330,7 +332,7 @@ export default function ChatsScreen() {
 
           {hasLoadedInbox ? <SectionLabel label="Group rooms" /> : null}
           {hasLoadedInbox ? (
-            <View style={{ gap: 16 }}>
+            <View style={{ gap: 14 }}>
               {groupRooms.length ? (
                 groupRooms.map((group) => (
                   <Pressable
@@ -343,15 +345,15 @@ export default function ChatsScreen() {
                     <SurfaceCard
                       style={{
                         padding: 16,
-                        borderRadius: 24,
+                        borderRadius: 22,
                         backgroundColor: '#171D30',
                         borderColor: 'rgba(255,255,255,0.10)',
                       }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-                        <Avatar name={group.hostName} imageUrl={group.hostAvatarUrl} size={74} />
+                        <Avatar name={group.hostName} imageUrl={group.hostAvatarUrl} size={66} />
                         <View style={{ flex: 1, gap: 5 }}>
                           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                            <MatchText variant="title" style={{ fontSize: 20, lineHeight: 22, flex: 1 }} numberOfLines={1}>
+                            <MatchText variant="title" style={{ fontSize: 18, lineHeight: 20, flex: 1 }} numberOfLines={1}>
                               {group.hostName}&apos;s room
                             </MatchText>
                             <View
@@ -362,13 +364,13 @@ export default function ChatsScreen() {
                                 borderRadius: 999,
                                 backgroundColor: 'rgba(160,255,97,0.16)',
                               }}>
-                              <MatchText style={{ color: theme.accent, fontWeight: '800', textAlign: 'center' }}>{group.attendeeCount}</MatchText>
+                              <MatchText style={{ color: theme.accent, fontWeight: '800', textAlign: 'center', fontSize: 12 }}>{group.attendeeCount}</MatchText>
                             </View>
                           </View>
                           <MatchText tone="muted" style={{ fontSize: 12 }}>
                             Group room
                           </MatchText>
-                          <MatchText tone="muted" numberOfLines={1} style={{ fontSize: 14 }}>
+                          <MatchText tone="muted" numberOfLines={1} style={{ fontSize: 13 }}>
                             {group.lastMessage ?? `${group.fixtureSummary ?? 'Watch party'} room ready`}
                           </MatchText>
                         </View>
@@ -383,7 +385,7 @@ export default function ChatsScreen() {
                 <SurfaceCard
                   style={{
                     padding: 16,
-                    borderRadius: 24,
+                    borderRadius: 22,
                     backgroundColor: '#171D30',
                     borderColor: 'rgba(255,255,255,0.10)',
                   }}>
@@ -408,40 +410,40 @@ function FeaturedThreadCard({
   return (
     <View
       style={{
-        borderRadius: 30,
+        borderRadius: 26,
         padding: 2,
         backgroundColor: 'rgba(216, 92, 197, 0.9)',
       }}>
       <View
         style={{
-          borderRadius: 28,
+          borderRadius: 24,
           backgroundColor: '#1A1E2D',
           borderWidth: 1,
           borderColor: 'rgba(158,255,97,0.55)',
           overflow: 'hidden',
-          padding: 18,
+          padding: 16,
         }}>
         <View style={{ position: 'absolute', left: -20, bottom: -26, width: 180, height: 120, borderRadius: 50, backgroundColor: 'rgba(158,255,97,0.10)' }} />
         <View style={{ position: 'absolute', right: -30, top: -12, width: 180, height: 120, borderRadius: 50, backgroundColor: 'rgba(157,113,255,0.14)' }} />
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-          <Avatar name={thread.otherDisplayName} imageUrl={thread.otherAvatarUrl} size={76} />
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <Avatar name={thread.otherDisplayName} imageUrl={thread.otherAvatarUrl} size={68} />
           <View style={{ flex: 1, gap: 4 }}>
             <View
               style={{
                 alignSelf: 'flex-start',
                 paddingHorizontal: 10,
-                paddingVertical: 5,
+                paddingVertical: 4,
                 borderRadius: 999,
                 backgroundColor: 'rgba(160,255,97,0.14)',
               }}>
-              <MatchText tone="accent" style={{ fontSize: 11, fontWeight: '800' }}>
+              <MatchText tone="accent" style={{ fontSize: 10, fontWeight: '800' }}>
                 Mutual wave
               </MatchText>
             </View>
-            <MatchText variant="title" style={{ fontSize: 24, lineHeight: 30 }}>
+            <MatchText variant="title" style={{ fontSize: 18, lineHeight: 21 }}>
               {thread.otherDisplayName}
             </MatchText>
-            <MatchText tone="muted" style={{ fontSize: 14, lineHeight: 19 }}>
+            <MatchText tone="muted" style={{ fontSize: 13, lineHeight: 17 }}>
               {thread.lastMessage ?? 'Chat unlocked · say hi'}
             </MatchText>
           </View>
@@ -449,12 +451,12 @@ function FeaturedThreadCard({
             onPress={onOpen}
             style={{
               alignSelf: 'center',
-              paddingHorizontal: 22,
-              paddingVertical: 15,
+              paddingHorizontal: 18,
+              paddingVertical: 13,
               borderRadius: 999,
               backgroundColor: '#F4F2EC',
             }}>
-            <MatchText variant="title" style={{ color: '#111722', fontSize: 19, lineHeight: 21 }}>
+            <MatchText variant="title" style={{ color: '#111722', fontSize: 16, lineHeight: 18 }}>
               Open
             </MatchText>
           </Pressable>
@@ -466,7 +468,7 @@ function FeaturedThreadCard({
 
 function SectionLabel({ label }: { label: string }) {
   return (
-    <MatchText variant="label" tone="muted" style={{ fontSize: 11, lineHeight: 14 }}>
+    <MatchText variant="label" tone="muted" style={{ fontSize: 10, lineHeight: 13 }}>
       {label}
     </MatchText>
   );

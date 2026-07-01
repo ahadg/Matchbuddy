@@ -66,10 +66,10 @@ const fallbackFans = [
 const presetRadii = [50, 100] as const;
 
 const discoveryNodes: Array<{ top: number; left?: number; right?: number }> = [
-  { top: 18, left: 16 },
-  { top: 20, right: 18 },
-  { top: 54, right: 14 },
-  { top: 76, left: 14 },
+  { top: 14, left: 18 },
+  { top: 18, right: 16 },
+  { top: 58, right: 10 },
+  { top: 68, left: 12 },
 ];
 
 type FanCardModel = {
@@ -208,12 +208,21 @@ export default function FansScreen() {
   const hostCount = cards.filter((card) => card.isHost).length;
   const mutualCount = cards.filter((card) => card.waveStatus === 'mutual').length;
   const suggestedRadiusKm = radiusKm < 100 ? 100 : Math.min(radiusKm + 50, 500);
+  const locationLabel = profile?.neighborhood ?? profile?.city ?? 'your area';
   const anchorSummary =
     profile?.neighborhood && profile?.city
       ? `${profile.neighborhood}, ${profile.city}`
       : profileLocation
         ? `${profileLocation.latitude.toFixed(4)}, ${profileLocation.longitude.toFixed(4)}`
         : `${anchor.latitude.toFixed(4)}, ${anchor.longitude.toFixed(4)}`;
+  const pulseSummary = isInitialLoad
+    ? `Scanning the next ${radiusKm} km around ${locationLabel}`
+    : `${locationLabel} • ${radiusKm} km radius`;
+  const activityLine = mutualCount > 0
+    ? `${hostCount} hosts active · ${mutualCount} mutual chats ready`
+    : hostCount > 0
+      ? `${hostCount} hosts active nearby`
+      : 'Fresh matchday activity updates as new fans appear';
   const snapshotColors =
     cards.length > 0
       ? cards.slice(0, 4).map((card) => card.secondary)
@@ -269,22 +278,24 @@ export default function FansScreen() {
           paddingTop: insets.top + Spacing.three,
           paddingBottom: BottomTabInset + 24,
         }}>
-        <View style={{ width: '100%', maxWidth: MaxContentWidth, alignSelf: 'center', gap: 16 }}>
+        <View style={{ width: '100%', maxWidth: MaxContentWidth, alignSelf: 'center', gap: 14 }}>
           <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: Spacing.three }}>
             <View style={{ gap: 4 }}>
-              <MatchText variant="label" tone="muted">
+              <MatchText variant="label" tone="muted" style={{ fontSize: 10, lineHeight: 13 }}>
                 Discovery
               </MatchText>
-              <MatchText variant="hero" style={{ fontSize: 34, lineHeight: 36 }}>
+              <MatchText variant="hero" style={{ fontSize: 29, lineHeight: 31 }}>
                 Nearby
               </MatchText>
             </View>
             <View
               style={{
-                width: 64,
-                height: 64,
+                width: 54,
+                height: 54,
                 borderRadius: 999,
-                backgroundColor: theme.accent,
+                backgroundColor: 'rgba(168,245,109,0.14)',
+                borderWidth: 1,
+                borderColor: 'rgba(168,245,109,0.24)',
                 alignItems: 'center',
                 justifyContent: 'center',
               }}>
@@ -298,28 +309,31 @@ export default function FansScreen() {
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}>
-                <MatchText variant="hero" style={{ color: '#0A0F17', fontSize: refreshing ? 14 : 20, lineHeight: refreshing ? 16 : 22 }}>
+                <MatchText variant="hero" style={{ color: theme.accent, fontSize: refreshing ? 13 : 18, lineHeight: refreshing ? 15 : 20 }}>
                   {refreshing ? '...' : '↻'}
                 </MatchText>
               </Pressable>
             </View>
           </View>
 
-          <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+            <MatchText tone="muted" style={{ fontSize: 11, lineHeight: 14, marginRight: 2 }}>
+              Radius
+            </MatchText>
             {presetRadii.map((preset) => (
               <Pressable
                 key={preset}
                 onPress={() => setRadiusKm(preset)}
                 style={({ pressed }) => ({
-                  paddingHorizontal: 14,
-                  paddingVertical: 9,
+                  paddingHorizontal: 12,
+                  paddingVertical: 7,
                   borderRadius: 999,
                   backgroundColor: radiusKm === preset ? 'rgba(160,255,97,0.18)' : 'rgba(255,255,255,0.06)',
                   borderWidth: 1,
                   borderColor: radiusKm === preset ? 'rgba(160,255,97,0.28)' : 'rgba(255,255,255,0.08)',
                   opacity: pressed ? 0.9 : 1,
                 })}>
-                <MatchText tone={radiusKm === preset ? 'accent' : 'default'} style={{ fontSize: 13, fontWeight: '700' }}>
+                <MatchText tone={radiusKm === preset ? 'accent' : 'default'} style={{ fontSize: 12, fontWeight: '700' }}>
                   {preset} km
                 </MatchText>
               </Pressable>
@@ -327,12 +341,12 @@ export default function FansScreen() {
 
             <View
               style={{
-                minWidth: 134,
+                minWidth: 118,
                 flexDirection: 'row',
                 alignItems: 'center',
                 gap: 8,
-                paddingHorizontal: 12,
-                paddingVertical: 8,
+                paddingHorizontal: 11,
+                paddingVertical: 6,
                 borderRadius: 999,
                 backgroundColor: 'rgba(255,255,255,0.06)',
                 borderWidth: 1,
@@ -346,7 +360,7 @@ export default function FansScreen() {
                 style={{
                   minWidth: 54,
                   color: theme.text,
-                  fontSize: 13,
+                  fontSize: 12,
                   paddingVertical: 0,
                 }}
                 value={customRadiusKm}
@@ -354,7 +368,7 @@ export default function FansScreen() {
                 onSubmitEditing={applyCustomRadius}
               />
               <Pressable onPress={applyCustomRadius}>
-                <MatchText tone="accent" style={{ fontSize: 13, fontWeight: '800' }}>
+                <MatchText tone="accent" style={{ fontSize: 12, fontWeight: '800' }}>
                   Apply
                 </MatchText>
               </Pressable>
@@ -362,37 +376,57 @@ export default function FansScreen() {
           </View>
 
           <SurfaceCard
-            style={{
-              padding: 18,
-              borderRadius: 30,
-              backgroundColor: '#171D30',
-              borderColor: 'rgba(255,255,255,0.10)',
-              gap: 16,
-            }}>
+              style={{
+                padding: 16,
+                borderRadius: 26,
+                backgroundColor: '#171D30',
+                borderColor: 'rgba(255,255,255,0.10)',
+                gap: 12,
+                overflow: 'hidden',
+              }}>
+            <View
+              style={{
+                position: 'absolute',
+                left: -40,
+                top: -28,
+                width: 180,
+                height: 180,
+                borderRadius: 999,
+                backgroundColor: 'rgba(160,255,97,0.08)',
+              }}
+            />
+            <View
+              style={{
+                position: 'absolute',
+                right: -46,
+                bottom: -56,
+                width: 210,
+                height: 210,
+                borderRadius: 999,
+                backgroundColor: 'rgba(157,113,255,0.09)',
+              }}
+            />
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
               <View style={{ flex: 1, gap: 10 }}>
                 <MatchText variant="label" tone="muted">
-                  Live around you
+                  Matchday pulse
                 </MatchText>
-                <MatchText variant="title" style={{ fontSize: 24, lineHeight: 28 }}>
-                  {isInitialLoad ? `Scanning ${radiusKm} km` : `${visibleFanCount} fans within ${radiusKm} km`}
+                <MatchText variant="title" style={{ fontSize: 20, lineHeight: 24 }}>
+                  {isInitialLoad ? `Scanning ${radiusKm} km` : `${visibleFanCount} fans around you`}
                 </MatchText>
-                <MatchText tone="muted" style={{ fontSize: 14, lineHeight: 20 }}>
-                  {profileLocation
-                    ? `Anchor: ${anchorSummary}`
-                    : `Using discovery anchor at ${anchorSummary}`}
+                <MatchText tone="muted" style={{ fontSize: 13, lineHeight: 18 }}>
+                  {pulseSummary}
                 </MatchText>
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                  {/* <BadgePill label="Public areas only" compact /> */}
-                  <BadgePill label={isRefreshing ? 'Refreshing now' : 'Live sync'} compact />
-                </View>
+                <MatchText tone="muted" style={{ fontSize: 12, lineHeight: 16 }}>
+                  {activityLine}
+                </MatchText>
               </View>
 
               <View
                 style={{
-                  width: 116,
-                  height: 116,
-                  borderRadius: 32,
+                  width: 104,
+                  height: 104,
+                  borderRadius: 30,
                   backgroundColor: 'rgba(255,255,255,0.04)',
                   borderWidth: 1,
                   borderColor: 'rgba(255,255,255,0.08)',
@@ -424,26 +458,55 @@ export default function FansScreen() {
                 <View
                   style={{
                     position: 'absolute',
-                    left: 41,
-                    top: 41,
-                    width: 34,
-                    height: 34,
+                    left: 22,
+                    top: 22,
+                    right: 22,
+                    bottom: 22,
+                    borderRadius: 999,
+                    borderWidth: 1,
+                    borderColor: 'rgba(160,255,97,0.16)',
+                  }}
+                />
+                <View
+                  style={{
+                    position: 'absolute',
+                    left: 34,
+                    top: 34,
+                    right: 34,
+                    bottom: 34,
+                    borderRadius: 999,
+                    borderWidth: 1,
+                    borderColor: 'rgba(160,255,97,0.12)',
+                  }}
+                />
+                <View
+                  style={{
+                    position: 'absolute',
+                    left: 32,
+                    top: 32,
+                    width: 40,
+                    height: 40,
                     borderRadius: 999,
                     backgroundColor: 'rgba(160,255,97,0.18)',
                     alignItems: 'center',
                     justifyContent: 'center',
                   }}>
-                  <View style={{ width: 16, height: 16, borderRadius: 999, backgroundColor: theme.accent }} />
+                  <MatchText variant="title" style={{ fontSize: 17, lineHeight: 19, color: theme.accent }}>
+                    {isInitialLoad ? '…' : String(visibleFanCount)}
+                  </MatchText>
                 </View>
                 {discoveryNodes.map((point, index) => (
                   <View
                     key={`${point.top}-${index}`}
                     style={{
                       position: 'absolute',
-                      width: 14,
-                      height: 14,
+                      width: 13,
+                      height: 13,
                       borderRadius: 999,
                       backgroundColor: snapshotColors[index] ?? '#66D8FF',
+                      shadowColor: snapshotColors[index] ?? '#66D8FF',
+                      shadowOpacity: 0.45,
+                      shadowRadius: 10,
                       ...(point.top !== undefined ? { top: point.top } : {}),
                       ...(point.left !== undefined ? { left: point.left } : {}),
                       ...(point.right !== undefined ? { right: point.right } : {}),
@@ -453,11 +516,10 @@ export default function FansScreen() {
               </View>
             </View>
 
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
-              <DiscoveryStatPill label="Fans" value={String(visibleFanCount)} />
-              <DiscoveryStatPill label="Hosts" value={String(hostCount)} />
-              <DiscoveryStatPill label="Radius" value={`${radiusKm} km`} />
-              {mutualCount > 0 ? <DiscoveryStatPill label="Mutual" value={String(mutualCount)} accent /> : null}
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+              <InsightChip label={isRefreshing ? 'Refreshing now' : 'Live sync'} accent />
+              {hostCount > 0 ? <InsightChip label={`${hostCount} hosts nearby`} /> : null}
+              {mutualCount > 0 ? <InsightChip label={`${mutualCount} chats unlocked`} accent /> : null}
             </View>
           </SurfaceCard>
 
@@ -504,20 +566,20 @@ export default function FansScreen() {
                 })}>
                 <SurfaceCard
                   style={{
-                    padding: 16,
-                    borderRadius: 28,
+                    padding: 15,
+                    borderRadius: 24,
                     backgroundColor: '#171D30',
                     borderColor: 'rgba(255,255,255,0.10)',
                   }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
                     <View
                       style={{
-                        width: 82,
-                        height: 82,
+                        width: 72,
+                        height: 72,
                         alignItems: 'center',
                         justifyContent: 'center',
                       }}>
-                      <Avatar name={fan.displayName} imageUrl={fan.avatarUrl} size={82} />
+                      <Avatar name={fan.displayName} imageUrl={fan.avatarUrl} size={72} />
                       <View
                         style={{
                           position: 'absolute',
@@ -533,20 +595,17 @@ export default function FansScreen() {
                       />
                     </View>
 
-                    <View style={{ flex: 1, gap: 4 }}>
+                    <View style={{ flex: 1, gap: 3 }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
-                        <MatchText variant="title" style={{ fontSize: 24, lineHeight: 26 }}>
+                        <MatchText variant="title" style={{ fontSize: 18, lineHeight: 21 }}>
                           {fan.displayName}
                         </MatchText>
                         {fan.isHost ? <HostBadge /> : null}
                       </View>
-                      <MatchText tone="muted" style={{ fontSize: 14, lineHeight: 19 }}>
-                        {fan.neighborhood} · {fan.distanceKm.toFixed(1)} km ·
+                      <MatchText tone="muted" style={{ fontSize: 13, lineHeight: 17 }}>
+                        {fan.neighborhood} · {fan.distanceKm.toFixed(1)} km · {fan.vibe}
                       </MatchText>
-                      <MatchText tone="muted" style={{ fontSize: 14, lineHeight: 19 }}>
-                        {fan.vibe}
-                      </MatchText>
-                      <MatchText style={{ color: '#FFC84B', fontSize: 15, fontWeight: '800' }}>★ {fan.rating.toFixed(1)}</MatchText>
+                      <MatchText style={{ color: '#FFC84B', fontSize: 14, fontWeight: '800' }}>★ {fan.rating.toFixed(1)}</MatchText>
                     </View>
 
                     <Pressable
@@ -555,9 +614,9 @@ export default function FansScreen() {
                         handleWave(fan).catch(() => undefined);
                       }}
                       style={({ pressed }) => ({
-                        width: 78,
-                        height: 78,
-                        borderRadius: 22,
+                        width: 66,
+                        height: 66,
+                        borderRadius: 20,
                         backgroundColor: waveButtonBackground(fan.waveStatus, theme.accent),
                         alignItems: 'center',
                         justifyContent: 'center',
@@ -569,7 +628,7 @@ export default function FansScreen() {
                         variant="subtitle"
                         style={{
                           color: waveButtonForeground(fan.waveStatus),
-                          fontSize: 14,
+                          fontSize: 13,
                           lineHeight: 16,
                           textAlign: 'center',
                         }}>
@@ -583,8 +642,8 @@ export default function FansScreen() {
           ) : !isInitialLoad ? (
             <SurfaceCard
               style={{
-                padding: 20,
-                borderRadius: 28,
+                padding: 18,
+                borderRadius: 24,
                 backgroundColor: '#171D30',
                 borderColor: 'rgba(255,255,255,0.10)',
                 overflow: 'hidden',
@@ -635,10 +694,10 @@ export default function FansScreen() {
                 </View>
 
                 <View style={{ gap: 8 }}>
-                  <MatchText variant="title" style={{ fontSize: 24, lineHeight: 26 }}>
+                  <MatchText variant="title" style={{ fontSize: 20, lineHeight: 22 }}>
                     It&apos;s a little quiet nearby right now
                   </MatchText>
-                  <MatchText tone="muted" style={{ fontSize: 14, lineHeight: 21 }}>
+                  <MatchText tone="muted" style={{ fontSize: 13, lineHeight: 19 }}>
                     Sorry, we couldn&apos;t find any fans within {radiusKm} km of {anchorSummary}. Try widening your search radius, and keep notifications on so you don&apos;t miss fresh matchday activity nearby.
                   </MatchText>
                 </View>
@@ -649,8 +708,8 @@ export default function FansScreen() {
                       setRadiusKm(suggestedRadiusKm);
                     }}
                     style={({ pressed }) => ({
-                      minHeight: 46,
-                      paddingHorizontal: 16,
+                      minHeight: 44,
+                      paddingHorizontal: 15,
                       borderRadius: 999,
                       alignItems: 'center',
                       justifyContent: 'center',
@@ -659,15 +718,15 @@ export default function FansScreen() {
                       borderColor: 'rgba(160,255,97,0.22)',
                       opacity: pressed ? 0.92 : 1,
                     })}>
-                    <MatchText tone="accent" style={{ fontSize: 14, fontWeight: '800' }}>
+                    <MatchText tone="accent" style={{ fontSize: 13, fontWeight: '800' }}>
                       Try {suggestedRadiusKm} km
                     </MatchText>
                   </Pressable>
 
                   <View
                     style={{
-                      minHeight: 46,
-                      paddingHorizontal: 14,
+                      minHeight: 44,
+                      paddingHorizontal: 13,
                       borderRadius: 999,
                       alignItems: 'center',
                       justifyContent: 'center',
@@ -675,7 +734,7 @@ export default function FansScreen() {
                       borderWidth: 1,
                       borderColor: 'rgba(255,255,255,0.08)',
                     }}>
-                    <MatchText tone="muted" style={{ fontSize: 13, fontWeight: '700' }}>
+                    <MatchText tone="muted" style={{ fontSize: 12, fontWeight: '700' }}>
                       Current radius · {radiusKm} km
                     </MatchText>
                   </View>
@@ -753,55 +812,18 @@ function waveButtonBorder(status: ApiWaveStatus) {
   return 'rgba(160,255,97,0.28)';
 }
 
-function BadgePill({ label, compact = false }: { label: string; compact?: boolean }) {
+function InsightChip({ label, accent = false }: { label: string; accent?: boolean }) {
   return (
     <View
       style={{
-        paddingHorizontal: compact ? 12 : 16,
-        paddingVertical: compact ? 8 : 10,
+        paddingHorizontal: 11,
+        paddingVertical: 7,
         borderRadius: 999,
-        backgroundColor: 'rgba(255,255,255,0.08)',
+        backgroundColor: accent ? 'rgba(160,255,97,0.12)' : 'rgba(255,255,255,0.08)',
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.10)',
+        borderColor: accent ? 'rgba(160,255,97,0.18)' : 'rgba(255,255,255,0.10)',
       }}>
-      <MatchText style={{ fontSize: compact ? 12 : 14, fontWeight: '700' }}>{label}</MatchText>
-    </View>
-  );
-}
-
-function DiscoveryStatPill({
-  label,
-  value,
-  accent = false,
-}: {
-  label: string;
-  value: string;
-  accent?: boolean;
-}) {
-  return (
-    <View
-      style={{
-        minWidth: 78,
-        paddingHorizontal: 12,
-        paddingVertical: 11,
-        borderRadius: 18,
-        backgroundColor: accent ? 'rgba(160,255,97,0.12)' : 'rgba(255,255,255,0.05)',
-        borderWidth: 1,
-        borderColor: accent ? 'rgba(160,255,97,0.18)' : 'rgba(255,255,255,0.08)',
-      }}>
-      <MatchText variant="label" tone="muted" style={{ fontSize: 10, lineHeight: 12 }}>
-        {label}
-      </MatchText>
-      <MatchText
-        variant="subtitle"
-        style={{
-          marginTop: 4,
-          fontSize: 15,
-          lineHeight: 18,
-          color: accent ? '#9BFF62' : undefined,
-        }}>
-        {value}
-      </MatchText>
+      <MatchText style={{ fontSize: 11, fontWeight: '700', color: accent ? '#B8FF7B' : undefined }}>{label}</MatchText>
     </View>
   );
 }
@@ -810,12 +832,12 @@ function HostBadge() {
   return (
     <View
       style={{
-        paddingHorizontal: 10,
-        paddingVertical: 5,
-        borderRadius: 10,
+        paddingHorizontal: 9,
+        paddingVertical: 4,
+        borderRadius: 9,
         backgroundColor: 'rgba(255, 203, 72, 0.18)',
       }}>
-      <MatchText style={{ color: '#FFC84B', fontSize: 12, fontWeight: '800' }}>♕ HOST</MatchText>
+      <MatchText style={{ color: '#FFC84B', fontSize: 11, fontWeight: '800' }}>♕ HOST</MatchText>
     </View>
   );
 }

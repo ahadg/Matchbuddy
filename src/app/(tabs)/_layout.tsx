@@ -18,7 +18,7 @@ function TabIcon({
   return (
     <SymbolView
       name={symbolName}
-      size={28}
+      size={25}
       tintColor={color}
       type="monochrome"
     />
@@ -42,28 +42,28 @@ export default function TabsLayout() {
         tabBarHideOnKeyboard: true,
         tabBarActiveTintColor: theme.accent,
         tabBarInactiveTintColor: theme.textSecondary,
-        tabBarActiveBackgroundColor: 'rgba(160, 255, 97, 0.14)',
+        tabBarActiveBackgroundColor: 'rgba(168, 245, 109, 0.12)',
         tabBarStyle: {
           display: hideTabBar ? 'none' : 'flex',
           position: 'absolute',
           bottom: Platform.OS === 'web' ? 12 : 8,
-          height: 72,
-          paddingTop: 7,
-          paddingBottom: 8,
-          paddingHorizontal: 9,
+          height: 68,
+          paddingTop: 6,
+          paddingBottom: 7,
+          paddingHorizontal: 8,
           borderTopWidth: 1,
           borderColor: theme.border,
-          borderTopLeftRadius: 26,
-          borderTopRightRadius: 26,
-          borderBottomLeftRadius: 26,
-          borderBottomRightRadius: 26,
+          borderTopLeftRadius: 24,
+          borderTopRightRadius: 24,
+          borderBottomLeftRadius: 24,
+          borderBottomRightRadius: 24,
           backgroundColor: theme.backgroundElement,
-          boxShadow: `0 16px 40px ${theme.shadow}`,
+          boxShadow: `0 14px 34px ${theme.shadow}`,
           ...(Platform.OS === 'web'
             ? {
-                width: 408,
+                width: 392,
                 left: '50%',
-                marginLeft: -204,
+                marginLeft: -196,
               }
             : {
                 left: 12,
@@ -71,19 +71,19 @@ export default function TabsLayout() {
               }),
         },
         tabBarItemStyle: {
-          borderRadius: 22,
+          borderRadius: 20,
           marginHorizontal: 2,
           marginVertical: 2,
         },
         tabBarLabelStyle: {
-          fontFamily: Fonts.rounded,
-          fontSize: 10,
+          fontFamily: Fonts.sans,
+          fontSize: 11,
           fontWeight: '700',
-          letterSpacing: 0.25,
+          letterSpacing: 0,
           paddingBottom: 2,
         },
         tabBarIconStyle: {
-          marginTop: 1,
+          marginTop: 0,
         },
         sceneStyle: {
           backgroundColor: theme.background,
